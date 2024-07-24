@@ -40,7 +40,7 @@
 
 ### Baskets :nest_with_eggs:
 
-- **[Games](https://github.com/Shardbyte/shardbyte-egg-basket/games)**
+- **[Games](https://github.com/Shardbyte/shard-egg-basket/tree/main/games)**
 - **[Minecraft](https://github.com/Shardbyte/shardbyte-egg-basket/minecraft)**
 - **[Software](https://github.com/Shardbyte/shardbyte-egg-basket/software)**
 - **[SteamCMD](https://github.com/Shardbyte/shardbyte-egg-basket/steamcmd)**
