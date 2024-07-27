@@ -32,7 +32,7 @@
           "name": "SPT Version",
           "description": "Choose the branch to compile SPT source from.",
           "env_variable": "SPT_BRANCH",
-          "default_value": "3.9.3",
+          "default_value": "3.9.4",
           "user_viewable": true,
           "user_editable": true,
           "rules": "required|string|between:5,8",
@@ -60,7 +60,7 @@
       },
       {
           "name": "Install Fika",
-          "description": "Choose if you want FIKA installed.\r\n0 = NO\r\n1 = YES",
+          "description": "Choose if you want FIKA installed.  \r\n0 = NO\r\n1 = YES",
           "env_variable": "SPT_FIKA",
           "default_value": "0",
           "user_viewable": true,
@@ -70,7 +70,7 @@
       },
       {
           "name": "Fika Branch",
-          "description": "Choose the branch to compile FIKA source from.\r\nmain = Latest",
+          "description": "Choose the branch to compile FIKA source from.  \r\nUse Same Tag as Client.",
           "env_variable": "FIKA_BRANCH",
           "default_value": "v2.2.3",
           "user_viewable": true,
