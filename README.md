@@ -17,8 +17,8 @@
 
 <div id="sub-header-1" align="center">
   <img src="img/crayons-shardbyte.svg" alt="crayons-shardbyte"/>
-  <img src="img/60-percent-shardbyte.svg" alt="60-percent-shardbyte"/>
   <img src="img/didnt-ask-shardbyte.svg" alt="didnt-ask-shardbyte"/>
+  <img src="img/60-percent-shardbyte.svg" alt="60-percent-shardbyte"/>
 </div>
 
 ---
