@@ -1,92 +1,93 @@
 {
-  "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL - PTERODACTYL.IO",
-  "meta": {
-      "version": "PTDL_v2",
-      "update_url": null
-  },
-  "exported_at": "2024-07-20T20:20:20-06:00",
-  "name": "Project Tarkov: Fika Edition",
-  "author": "saint@shardbyte.com",
-  "description": "Fika is a mod for SPT that allows you to play COOP with your friends. It utilizes a P2P-UDP connection for a modern and performant experience.",
-  "features": null,
-  "docker_images": {
-      "ghcr.io\/parkervcp\/yolks:debian": "ghcr.io\/parkervcp\/yolks:debian"
-  },
-  "file_denylist": [],
-  "startup": ".\/SPT.Server.exe",
-  "config": {
-      "files": "{\r\n    \"SPT_Data\/Server\/configs\/http.json\": {\r\n        \"parser\": \"json\",\r\n        \"find\": {\r\n            \"ip\": \"0.0.0.0\",\r\n            \"backendIp\": \"{{server.build.default.ip}}\",\r\n            \"backendPort\": \"{{server.build.default.port}}\",\r\n            \"port\": \"{{server.build.default.port}}\"\r\n        }\r\n    }\r\n}",
-      "startup": "{\r\n    \"done\": \"Server is running, do not close while playing SPT, Happy playing!!\"\r\n}",
-      "logs": "{}",
-      "stop": "^C"
-  },
-  "scripts": {
-      "installation": {
-          "script": "#!\/usr\/bin\/env bash\r\n###########################\r\n#                         #\r\n#  Saint @ Shardbyte.com  #\r\n#                         #\r\n###########################\r\n# Copyright (c) 2023-2024 Shardbyte\r\n# Author: Shardbyte (Saint)\r\n# Server Files: \/mnt\/server\r\n######  BEGIN FILE  ###### ######  BEGIN FILE  ###### ######  BEGIN FILE  ######\r\n\r\n# ------------------ Variables ----------------- #\r\n\r\nYW=$(echo \"\\033[33m\")        # Yellow Text\r\nGN=$(echo \"\\033[1;92m\")      # Green Text\r\nCL=$(echo \"\\033[m\")          # Reset Text\r\nBFR=\"\\\\r\\\\033[K\"             # Clear Line\r\nHOLD=\"[INFO]\"                # State Header\r\nCM=\"${GN}\u2713${CL}\"             # Checkmark (Success)\r\n\r\n# ------------------ Information Messages ----------------- #\r\n\r\nmsg_info() {\r\n  local msg=\"$1\"\r\n  echo -ne \" ${GN}${HOLD}${CL} ${YW}${msg}${CL}\\n\"\r\n}\r\n\r\nmsg_ok() {\r\n  local msg=\"$1\"\r\n  echo -e \"${BFR} ${CM} ${GN}${msg}${CL}\\n\"\r\n}\r\n\r\n# ------------------ Begin Installation ----------------- #\r\n\r\n# Git Config\r\nmsg_info \"Configuring Git\"\r\ngit config --global advice.detachedHead false > \/dev\/null 2>&1\r\n\r\n# Cleanup\r\nmsg_info \"Cleaning up directories\"\r\nif [[ -d ${HOME}\/dev ]]; then\r\n  rm -rf ${HOME}\/dev > \/dev\/null 2>&1\r\nfi\r\n\r\nif [[ -d \/mnt\/server ]]; then\r\n  rm -rf \/mnt\/server\/* > \/dev\/null 2>&1\r\nfi\r\n\r\n# Update and install git, git-lfs, curl\r\nmsg_info \"Updating packages and installing git, git-lfs, curl\"\r\napt update > \/dev\/null 2>&1\r\napt install -yq git git-lfs curl > \/dev\/null 2>&1\r\n\r\n# Install Node Version Manager (NVM) and NodeJS\r\nmsg_info \"Installing NVM and NodeJS\"\r\ngit clone https:\/\/github.com\/nvm-sh\/nvm.git ${HOME}\/.nvm > \/dev\/null 2>&1\r\nchmod o+rwx -R ${HOME}\/.nvm > \/dev\/null 2>&1\r\nsource ${HOME}\/.nvm\/nvm.sh\r\nnvm install ${NODE_VERSION} > \/dev\/null 2>&1\r\n\r\n# Clone the SPT repository\r\nmsg_info \"Cloning the SPT repository\"\r\ngit clone --branch ${SPT_BRANCH} https:\/\/dev.sp-tarkov.com\/SPT\/Server.git ${HOME}\/dev\/server > \/dev\/null 2>&1\r\n\r\n# Navigating to the project\r\nmsg_info \"Navigating to the project directory and preparing the repository\"\r\ncd ${HOME}\/dev\/server\/project\r\n\r\n# Fetching LFS files\r\nmsg_info \"Checking out the specified commit and fetching all LFS files\"\r\ngit checkout ${SPT_COMMIT} > \/dev\/null 2>&1\r\ngit-lfs fetch --all > \/dev\/null 2>&1\r\ngit-lfs pull > \/dev\/null 2>&1\r\n\r\n# Install npm dependencies and building the release\r\nmsg_info \"Installing NPM dependencies and building the release\"\r\nnpm install > \/dev\/null 2>&1\r\nnpm run build:release -- --arch=$([ \"$(uname -m)\" = \"aarch64\" ] && echo arm64 || echo x64) --platform=linux > \/dev\/null 2>&1\r\n\r\n# Move the built server and clean up the source\r\nmsg_info \"Installing SPT server\"\r\nmv ${HOME}\/dev\/server\/project\/build\/* \/mnt\/server\/ > \/dev\/null 2>&1\r\n\r\n# Check if FIKA should be installed\r\nif [ \"${SPT_FIKA}\" = 1 ]; then\r\n  # Cloning the Fika mod  \r\n  msg_info \"Cloning FIKA mod repository\"\r\n  git clone --branch ${FIKA_BRANCH} https:\/\/github.com\/project-fika\/Fika-Server.git ${HOME}\/dev\/fika-server > \/dev\/null 2>&1\r\n\r\n  # Fetching LFS files\r\n  msg_info \"Checking out the specified commit for the Fika mod\"\r\n  cd ${HOME}\/dev\/fika-server > \/dev\/null 2>&1\r\n  git checkout ${FIKA_COMMIT} > \/dev\/null 2>&1\r\n  git-lfs fetch --all > \/dev\/null 2>&1\r\n  git-lfs pull > \/dev\/null 2>&1\r\n\r\n  # Install npm dependencies and run the build\r\n  msg_info \"Building Fika mod\"\r\n  source ${HOME}\/.nvm\/nvm.sh > \/dev\/null 2>&1\r\n  npm install > \/dev\/null 2>&1\r\n  npm run build > \/dev\/null 2>&1\r\n  \r\n  # Creating Mod folder\r\n  msg_info \"Creating necessary directories\"\r\n  mkdir -p \/mnt\/server\/user\/mods > \/dev\/null 2>&1\r\n\r\n  # Installing Fika\r\n  msg_info \"Installing FIKA mod\"\r\n  unzip ${HOME}\/dev\/fika-server\/dist\/fika-server.zip -d \/mnt\/server\/ > \/dev\/null 2>&1\r\nfi\r\n\r\nmsg_ok \"Server installation and configuration completed successfully!\"\r\nrm -rf ${HOME}\/dev > \/dev\/null 2>&1",
-          "container": "ghcr.io\/parkervcp\/installers:debian",
-          "entrypoint": "bash"
-      }
-  },
-  "variables": [
-      {
-          "name": "SPT Version",
-          "description": "Choose the branch to compile SPT source from.",
-          "env_variable": "SPT_BRANCH",
-          "default_value": "3.9.4",
-          "user_viewable": true,
-          "user_editable": true,
-          "rules": "required|string|between:5,8",
-          "field_type": "text"
-      },
-      {
-          "name": "Node Version",
-          "description": "Choose the version of NodeJS to use.",
-          "env_variable": "NODE_VERSION",
-          "default_value": "20.11.1",
-          "user_viewable": true,
-          "user_editable": true,
-          "rules": "nullable|string|between:3,10",
-          "field_type": "text"
-      },
-      {
-          "name": "SPT Commit",
-          "description": "Choose the commit to compile SPT source from.",
-          "env_variable": "SPT_COMMIT",
-          "default_value": "HEAD",
-          "user_viewable": true,
-          "user_editable": true,
-          "rules": "required|string|max:64",
-          "field_type": "text"
-      },
-      {
-          "name": "Install Fika",
-          "description": "Choose if you want FIKA installed.  \r\n0 = NO\r\n1 = YES",
-          "env_variable": "SPT_FIKA",
-          "default_value": "0",
-          "user_viewable": true,
-          "user_editable": true,
-          "rules": "required|boolean",
-          "field_type": "text"
-      },
-      {
-          "name": "Fika Branch",
-          "description": "Choose the branch to compile FIKA source from.  \r\nUse Same Tag as Client.",
-          "env_variable": "FIKA_BRANCH",
-          "default_value": "v2.2.4",
-          "user_viewable": true,
-          "user_editable": true,
-          "rules": "required|string|max:8",
-          "field_type": "text"
-      },
-      {
-          "name": "Fika Commit",
-          "description": "Choose the commit to compile FIKA source from.",
-          "env_variable": "FIKA_COMMIT",
-          "default_value": "HEAD",
-          "user_viewable": true,
-          "user_editable": true,
-          "rules": "required|string|max:64",
-          "field_type": "text"
-      }
-  ]
-}
+    "_comment": "DO NOT EDIT: FILE GENERATED AUTOMATICALLY BY PTERODACTYL PANEL - PTERODACTYL.IO",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": null
+    },
+    "exported_at": "2024-07-20T20:20:20-06:00",
+    "name": "Project Tarkov: Fika Edition",
+    "author": "saint@shardbyte.com",
+    "description": "Fika is a mod for SPT that allows you to play COOP with your friends. It utilizes a P2P-UDP connection for a modern and performant experience.",
+    "features": null,
+    "docker_images": {
+        "ghcr.io\/parkervcp\/yolks:debian": "ghcr.io\/parkervcp\/yolks:debian"
+    },
+    "file_denylist": [],
+    "startup": ".\/SPT.Server.exe",
+    "config": {
+        "files": "{\r\n    \"SPT_Data\/Server\/configs\/http.json\": {\r\n        \"parser\": \"json\",\r\n        \"find\": {\r\n            \"ip\": \"0.0.0.0\",\r\n            \"backendIp\": \"{{server.build.default.ip}}\",\r\n            \"backendPort\": \"{{server.build.default.port}}\",\r\n            \"port\": \"{{server.build.default.port}}\"\r\n        }\r\n    }\r\n}",
+        "startup": "{\r\n    \"done\": \"Server is running, do not close while playing SPT, Happy playing!!\"\r\n}",
+        "logs": "{}",
+        "stop": "^C"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!\/usr\/bin\/env bash\r\n###########################\r\n#                         #\r\n#  Saint @ Shardbyte.com  #\r\n#                         #\r\n###########################\r\n# Copyright (c) 2023-2024 Shardbyte\r\n# Author: Shardbyte (Saint)\r\n# Server Files: \/mnt\/server\r\n######  BEGIN FILE  ###### ######  BEGIN FILE  ###### ######  BEGIN FILE  ######\r\n\r\n# ------------------ Variables ----------------- #\r\n\r\nYW=$(echo \"\\033[33m\")        # Yellow Text\r\nGN=$(echo \"\\033[1;92m\")      # Green Text\r\nCL=$(echo \"\\033[m\")          # Reset Text\r\nBFR=\"\\\\r\\\\033[K\"             # Clear Line\r\nHOLD=\"[INFO]\"                # State Header\r\nCM=\"${GN}\u2713${CL}\"             # Checkmark (Success)\r\n\r\n# ------------------ Information Messages ----------------- #\r\n\r\nmsg_info() {\r\n  local msg=\"$1\"\r\n  echo -ne \" ${GN}${HOLD}${CL} ${YW}${msg}${CL}\\n\"\r\n}\r\n\r\nmsg_ok() {\r\n  local msg=\"$1\"\r\n  echo -e \"${BFR} ${CM} ${GN}${msg}${CL}\\n\"\r\n}\r\n\r\n# ------------------ Begin Installation ----------------- #\r\n\r\n# Git Config\r\nmsg_info \"Configuring Git\"\r\ngit config --global advice.detachedHead false > \/dev\/null 2>&1\r\n\r\n# Cleanup\r\nmsg_info \"Cleaning up directories\"\r\nif [[ -d ${HOME}\/dev ]]; then\r\n  rm -rf ${HOME}\/dev > \/dev\/null 2>&1\r\nfi\r\n\r\nif [[ -d \/mnt\/server ]]; then\r\n  rm -rf \/mnt\/server\/* > \/dev\/null 2>&1\r\nfi\r\n\r\n# Update and install git, git-lfs, curl\r\nmsg_info \"Updating packages and installing git, git-lfs, curl\"\r\napt update > \/dev\/null 2>&1\r\napt install -yq git git-lfs curl > \/dev\/null 2>&1\r\n\r\n# Install Node Version Manager (NVM) and NodeJS\r\nmsg_info \"Installing NVM and NodeJS\"\r\ngit clone https:\/\/github.com\/nvm-sh\/nvm.git ${HOME}\/.nvm > \/dev\/null 2>&1\r\nchmod o+rwx -R ${HOME}\/.nvm > \/dev\/null 2>&1\r\nsource ${HOME}\/.nvm\/nvm.sh\r\nnvm install ${NODE_VERSION} > \/dev\/null 2>&1\r\n\r\n# Clone the SPT repository\r\nmsg_info \"Cloning the SPT repository\"\r\ngit clone --branch ${SPT_BRANCH} https:\/\/dev.sp-tarkov.com\/SPT\/Server.git ${HOME}\/dev\/server > \/dev\/null 2>&1\r\n\r\n# Navigating to the project\r\nmsg_info \"Navigating to the project directory and preparing the repository\"\r\ncd ${HOME}\/dev\/server\/project\r\n\r\n# Fetching LFS files\r\nmsg_info \"Checking out the specified commit and fetching all LFS files\"\r\ngit checkout ${SPT_COMMIT} > \/dev\/null 2>&1\r\ngit-lfs fetch --all > \/dev\/null 2>&1\r\ngit-lfs pull > \/dev\/null 2>&1\r\n\r\n# Install npm dependencies and building the release\r\nmsg_info \"Installing NPM dependencies and building the release\"\r\nnpm install > \/dev\/null 2>&1\r\nnpm run build:release -- --arch=$([ \"$(uname -m)\" = \"aarch64\" ] && echo arm64 || echo x64) --platform=linux > \/dev\/null 2>&1\r\n\r\n# Move the built server and clean up the source\r\nmsg_info \"Installing SPT server\"\r\nmv ${HOME}\/dev\/server\/project\/build\/* \/mnt\/server\/ > \/dev\/null 2>&1\r\n\r\n# Check if FIKA should be installed\r\nif [ \"${SPT_FIKA}\" = 1 ]; then\r\n  # Cloning the Fika mod  \r\n  msg_info \"Cloning FIKA mod repository\"\r\n  git clone --branch ${FIKA_BRANCH} https:\/\/github.com\/project-fika\/Fika-Server.git ${HOME}\/dev\/fika-server > \/dev\/null 2>&1\r\n\r\n  # Fetching LFS files\r\n  msg_info \"Checking out the specified commit for the Fika mod\"\r\n  cd ${HOME}\/dev\/fika-server > \/dev\/null 2>&1\r\n  git checkout ${FIKA_COMMIT} > \/dev\/null 2>&1\r\n  git-lfs fetch --all > \/dev\/null 2>&1\r\n  git-lfs pull > \/dev\/null 2>&1\r\n\r\n  # Install npm dependencies and run the build\r\n  msg_info \"Building Fika mod\"\r\n  source ${HOME}\/.nvm\/nvm.sh > \/dev\/null 2>&1\r\n  npm install > \/dev\/null 2>&1\r\n  npm run build > \/dev\/null 2>&1\r\n  \r\n  # Creating Mod folder\r\n  msg_info \"Creating necessary directories\"\r\n  mkdir -p \/mnt\/server\/user\/mods > \/dev\/null 2>&1\r\n\r\n  # Installing Fika\r\n  msg_info \"Installing FIKA mod\"\r\n  unzip ${HOME}\/dev\/fika-server\/dist\/fika-server.zip -d \/mnt\/server\/ > \/dev\/null 2>&1\r\nfi\r\n\r\nmsg_ok \"Server installation and configuration completed successfully!\"\r\nrm -rf ${HOME}\/dev > \/dev\/null 2>&1",
+            "container": "ghcr.io\/parkervcp\/installers:debian",
+            "entrypoint": "bash"
+        }
+    },
+    "variables": [
+        {
+            "name": "SPT Version",
+            "description": "Choose the branch to compile SPT source from.",
+            "env_variable": "SPT_BRANCH",
+            "default_value": "3.9.4",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|between:5,8",
+            "field_type": "text"
+        },
+        {
+            "name": "SPT Commit",
+            "description": "Choose the commit to compile SPT source from.",
+            "env_variable": "SPT_COMMIT",
+            "default_value": "HEAD",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:64",
+            "field_type": "text"
+        },
+        {
+            "name": "Fika Branch",
+            "description": "Choose the branch to compile FIKA source from.  \r\nUse Same Tag as Client.",
+            "env_variable": "FIKA_BRANCH",
+            "default_value": "v2.2.4",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:8",
+            "field_type": "text"
+        },
+        {
+            "name": "Fika Commit",
+            "description": "Choose the commit to compile FIKA source from.",
+            "env_variable": "FIKA_COMMIT",
+            "default_value": "HEAD",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:64",
+            "field_type": "text"
+        },
+        {
+            "name": "Node Version",
+            "description": "Choose the version of NodeJS to use.",
+            "env_variable": "NODE_VERSION",
+            "default_value": "20.11.1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|between:3,10",
+            "field_type": "text"
+        },
+        {
+            "name": "Install Fika",
+            "description": "Choose if you want FIKA installed.  \r\n0 = NO\r\n1 = YES",
+            "env_variable": "SPT_FIKA",
+            "default_value": "0",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        }
+    ]
+  }
+  
