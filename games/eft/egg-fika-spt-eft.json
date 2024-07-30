@@ -52,7 +52,7 @@
             "name": "Fika Branch",
             "description": "Choose the branch to compile FIKA source from.  \r\nUse Same Tag as Client.",
             "env_variable": "FIKA_BRANCH",
-            "default_value": "v2.2.4",
+            "default_value": "v2.2.5",
             "user_viewable": true,
             "user_editable": true,
             "rules": "required|string|max:8",
