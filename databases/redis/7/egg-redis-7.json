@@ -18,7 +18,7 @@
         "files": "{}",
         "startup": "{\r\n    \"done\": \"CReady to accept connections tcp\"\r\n}",
         "logs": "{}",
-        "stop": "^C"
+        "stop": "^C 15"
     },
     "scripts": {
         "installation": {
