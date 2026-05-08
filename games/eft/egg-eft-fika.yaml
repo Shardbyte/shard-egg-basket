@@ -1,6 +1,6 @@
 meta:
   version: PLCN_v3
-  update_url: 'https://raw.githubusercontent.com/Shardbyte/shard-egg-basket/refs/heads/main/games/tarkov/egg-tarkov-fika.yaml'
+  update_url: 'https://raw.githubusercontent.com/Shardbyte/shard-egg-basket/refs/heads/main/games/eft/egg-eft-fika.yaml'
 exported_at: '2026-05-08T00:00:00+00:00'
 name: 'Project Tarkov: Fika Edition'
 author: saint@shardbyte.com
@@ -295,9 +295,9 @@ variables:
   -
     sort: 1
     name: 'SPT Version'
-    description: 'Git branch or tag to compile the SPT C# server from (e.g. 4.0.2, main).'
+    description: 'Git branch or tag to compile the SPT C# server from (e.g. 4.0.13, main).'
     env_variable: SPT_BRANCH
-    default_value: 4.0.2
+    default_value: 4.0.13
     user_viewable: true
     user_editable: true
     rules:
@@ -307,7 +307,7 @@ variables:
   -
     sort: 2
     name: 'Install Fika'
-    description: "Choose if you want FIKA installed.  \r\n0 = NO\r\n1 = YES"
+    description: "Choose if you want FIKA installed."
     env_variable: SPT_FIKA
     default_value: 0
     user_viewable: true
