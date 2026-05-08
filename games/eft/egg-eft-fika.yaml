@@ -1,0 +1,317 @@
+meta:
+  version: PLCN_v3
+  update_url: 'https://raw.githubusercontent.com/Shardbyte/shard-egg-basket/refs/heads/main/games/tarkov/egg-tarkov-fika.yaml'
+exported_at: '2026-05-08T00:00:00+00:00'
+name: 'Project Tarkov: Fika Edition'
+author: saint@shardbyte.com
+uuid: a1532ce8-d9df-4d2f-829a-867373307df2
+description: |-
+  Fika is a mod for SPT that allows you to play COOP with your friends. It utilizes a P2P-UDP
+  connection for a modern and performant experience.
+image: null
+tags:
+  - tarkov
+  - spt
+  - fika
+features: []
+docker_images:
+  'Debian 13 (Trixie)': 'ghcr.io/shardbyte/yolks:debian'
+file_denylist: []
+startup_commands:
+  Default: ./SPT.Server.Linux
+config:
+  files:
+    SPT_Data/Server/configs/http.json:
+      parser: json
+      find:
+        ip: 0.0.0.0
+        backendIp: '{{server.allocations.default.ip}}'
+        backendPort: '{{server.allocations.default.port}}'
+        port: '{{server.allocations.default.port}}'
+    user/mods/fika-server/assets/configs/fika.jsonc:
+      parser: json
+      find:
+        server.SPT.http.ip: 0.0.0.0
+        server.SPT.http.backendIp: '{{server.allocations.default.ip}}'
+        server.SPT.http.backendPort: '{{server.allocations.default.port}}'
+        server.SPT.http.port: '{{server.allocations.default.port}}'
+  startup:
+    done: 'Server has started, happy playing'
+  logs: {}
+  stop: ^C
+scripts:
+  installation:
+    script: |
+      #!/usr/bin/env bash
+      ###########################
+      #                         #
+      #  Saint @ Shardbyte.com  #
+      #                         #
+      ###########################
+      # Copyright (c) 2023-2026 Shardbyte
+      # Author: Shardbyte (Saint)
+      # Server Files: /mnt/server
+      ######  BEGIN FILE  ###### ######  BEGIN FILE  ###### ######  BEGIN FILE  ######
+
+      # ------------------ Variables ----------------- #
+
+      YW=$(echo "\033[33m")        # Yellow Text
+      GN=$(echo "\033[1;92m")      # Green Text
+      CL=$(echo "\033[m")          # Reset Text
+      BFR="\\r\\033[K"             # Clear Line
+      HOLD="[INFO]"                # State Header
+      CM="${GN}✓${CL}"             # Checkmark (Success)
+
+      # Build controls (expected to be provided by env or panel)
+      : "${SPT_BRANCH:=main}"
+      : "${SPT_COMMIT:=HEAD}"
+      : "${SPT_FIKA:=0}"           # set 1 to install FIKA
+
+      # Architecture → Runtime Identifier
+      ARCH="$(uname -m)"
+      if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+        RID="linux-arm64"
+      else
+        RID="linux-x64"
+      fi
+
+      # ------------------ Information Messages ----------------- #
+
+      msg_info() { echo -ne " ${GN}${HOLD}${CL} ${YW}$1${CL}\n"; }
+      msg_ok()   { echo -e  "${BFR} ${CM} ${GN}$1${CL}\n"; }
+
+      # ------------------ Begin Installation ----------------- #
+
+      # Git Config
+      msg_info "Configuring Git"
+      git config --global advice.detachedHead false > /dev/null 2>&1
+
+      # Cleanup
+      msg_info "Cleaning up directories"
+      [ -d "${HOME}/dev" ] && rm -rf "${HOME}/dev" > /dev/null 2>&1
+      [ -d /mnt/server ] && rm -rf /mnt/server/* > /dev/null 2>&1
+
+      # Install tools not included in installers:dotnet_10 (git-lfs, file)
+      # dotnet-sdk-10.0, git, curl, wget, jq, unzip, gpg are already in the image.
+      msg_info "Installing additional prerequisites"
+      apt-get update -q > /dev/null 2>&1
+      apt-get install -yq git-lfs file > /dev/null 2>&1
+
+      # Ceciler.Launcher.dll (post-build step) targets net9.0 but runs fine on the
+      # .NET 10 runtime already in this image when roll-forward is allowed.
+      # DOTNET_ROLL_FORWARD=LatestMajor is exported here so dotnet publish inherits
+      # it for any child process it spawns, including the Ceciler exec step.
+      # DOTNET_GCConserveMemory=9 tells the GC to aggressively return heap memory
+      # between compilations — reduces peak RSS during the Roslyn compile phase.
+      export DOTNET_ROLL_FORWARD=LatestMajor
+      export DOTNET_GCConserveMemory=9
+      msg_ok ".NET SDK $(dotnet --version) ready"
+
+      # PowerShell 7.5 is required by SPT build scripts (pwsh targets in .csproj).
+      # Try apt first; fall back to the self-contained tarball from GitHub (no dpkg
+      # dependency resolution needed — the tarball bundles its own libs).
+      # Note: PowerShell tarballs use 'x64' where Debian packages say 'amd64'.
+      msg_info "Installing PowerShell 7.5"
+      PWSH_VER="7.5.0"
+      if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+        PWSH_ARCH="arm64"
+      else
+        PWSH_ARCH="x64"
+      fi
+      if ! apt-get install -yq powershell > /dev/null 2>&1; then
+        PWSH_TAR="powershell-${PWSH_VER}-linux-${PWSH_ARCH}.tar.gz"
+        mkdir -p /opt/microsoft/powershell/7
+        curl -fsSL "https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VER}/${PWSH_TAR}" \
+          | tar -xz -C /opt/microsoft/powershell/7 > /dev/null 2>&1 \
+          && chmod +x /opt/microsoft/powershell/7/pwsh \
+          && ln -sf /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh \
+          || { echo "WARNING: PowerShell ${PWSH_VER} install failed — build scripts using pwsh will fail"; }
+      fi
+      msg_ok "PowerShell $(pwsh --version 2>/dev/null || echo 'unavailable') ready"
+
+      # --- Clone the SPT repository ---
+      msg_info "Cloning the SPT repository (${SPT_BRANCH})"
+      mkdir -p "${HOME}/dev"
+      if ! git clone --branch "${SPT_BRANCH}" https://github.com/sp-tarkov/server-csharp "${HOME}/dev/server" > /dev/null 2>&1; then
+        echo "ERROR: git clone failed — check that SPT_BRANCH '${SPT_BRANCH}' exists on sp-tarkov/server-csharp."
+        exit 1
+      fi
+
+      msg_info "Preparing repository at commit ${SPT_COMMIT}"
+      if ! cd "${HOME}/dev/server"; then
+        echo "ERROR: repository directory not found after clone."
+        exit 1
+      fi
+
+      git checkout "${SPT_COMMIT}" > /dev/null 2>&1
+      git-lfs fetch --all > /dev/null 2>&1
+      git-lfs pull > /dev/null 2>&1
+
+      # --- Build with dotnet ---
+      # Self-contained publish bundles the .NET runtime so no runtime dependency
+      # is needed in the server's Docker container at startup.
+      BUILD_OUT="${HOME}/dev/server/publish"
+      BUILD_LOG="/tmp/dotnet_build.log"
+
+      # Step 1: Build the full solution so all projects (including Ceciler.Virtualizer
+      # and other patch assemblies) are compiled in dependency order before the
+      # SPTarkov.Server.Core post-build Ceciler step looks for them.
+      # Targeting a single .csproj skips the solution build graph and leaves
+      # Ceciler.Virtualizer.dll missing, causing Ceciler to exit with code 2.
+      SLN_FILE="$(find . -maxdepth 2 -name '*.sln' | head -n1)"
+      BUILD_TARGET="${SLN_FILE:-.}"
+      msg_info "Building solution (${BUILD_TARGET}) to compile Ceciler dependencies"
+      if ! dotnet build "$BUILD_TARGET" -c Release -maxcpucount:1 > "$BUILD_LOG" 2>&1; then
+        BUILD_EXIT=$?
+        if [ "$BUILD_EXIT" -eq 137 ]; then
+          echo "ERROR: dotnet build was killed by the OOM killer (exit 137)."
+          echo "       Increase the install container memory to at least 4 GB and reinstall."
+        else
+          echo "ERROR: dotnet build failed (exit ${BUILD_EXIT}). Build log:"
+          cat "$BUILD_LOG"
+        fi
+        exit 1
+      fi
+
+      # Step 2: Publish the server executable self-contained for the target RID.
+      # Ceciler.Virtualizer.dll now exists from step 1, so the post-build step succeeds.
+      DOTNET_TARGET="$(find . -name '*.csproj' -exec grep -l '<OutputType>Exe</OutputType>' {} \; 2>/dev/null | head -n1)"
+      if [ -z "$DOTNET_TARGET" ]; then
+        DOTNET_TARGET="$(find . -maxdepth 3 -name '*.csproj' | head -n1)"
+      fi
+      if [ -z "$DOTNET_TARGET" ]; then
+        DOTNET_TARGET="$BUILD_TARGET"
+      fi
+      msg_info "Publishing SPT for ${RID} (Release, self-contained) from ${DOTNET_TARGET}"
+      if ! dotnet publish "$DOTNET_TARGET" \
+            -c Release \
+            -o "$BUILD_OUT" \
+            -r "$RID" \
+            --self-contained true \
+            -maxcpucount:1 \
+            >> "$BUILD_LOG" 2>&1; then
+        PUBLISH_EXIT=$?
+        if [ "$PUBLISH_EXIT" -eq 137 ]; then
+          echo "ERROR: dotnet publish was killed by the OOM killer (exit 137)."
+          echo "       Increase the install container memory to at least 4 GB and reinstall."
+        else
+          echo "ERROR: dotnet publish failed (exit ${PUBLISH_EXIT}). Build log:"
+          cat "$BUILD_LOG"
+        fi
+        exit 1
+      fi
+      msg_ok "SPT built successfully"
+
+      # Install SPT server
+      msg_info "Installing SPT server to /mnt/server"
+      mkdir -p /mnt/server
+      cp -a "$BUILD_OUT"/. /mnt/server/ > /dev/null 2>&1
+
+      # ---------- FIKA: download from latest GitHub release (no build) ----------
+      if [ "${SPT_FIKA}" = "1" ]; then
+        msg_info "Fetching latest FIKA release metadata"
+        API_URL="https://api.github.com/repos/project-fika/Fika-Server-CSharp/releases/latest"
+        JSON="$(curl -sSL "$API_URL")"
+
+        # Prefer assets matching our RID; fall back to any .zip
+        ASSET_URL="$(echo "$JSON" \
+          | jq -r --arg rid "$RID" '
+              .assets
+              | map({name:.name, url:.browser_download_url})
+              | (map(select((.name|ascii_downcase)|test($rid))) // [])
+                + (map(select((.name|ascii_downcase)|test("linux"))) // [])
+                + (map(select((.name|ascii_downcase)|test("\\.zip$"))) // [])
+              | .[0].url // empty
+            ')"
+
+        if [ -z "$ASSET_URL" ] || [ "$ASSET_URL" = "null" ]; then
+          msg_info "Could not auto-detect an asset; attempting generic latest download page"
+          ASSET_URL="https://github.com/project-fika/Fika-Server-CSharp/releases/latest"
+        fi
+
+        msg_info "Downloading FIKA from: ${ASSET_URL}"
+        TMP_ZIP="$(mktemp --suffix=.zip)"
+        # Follow redirects; if ASSET_URL is a page, this may still download HTML—handle gracefully.
+        if curl -fL "$ASSET_URL" -o "$TMP_ZIP" 2>/dev/null && file "$TMP_ZIP" | grep -qi 'zip archive'; then
+          :
+        else
+          # If first attempt produced HTML, try to parse assets directly (fallback)
+          rm -f "$TMP_ZIP"
+          ASSET_URL_ANY="$(echo "$JSON" | jq -r '.assets[]?.browser_download_url | select(test("\\.zip$"))' | head -n1)"
+          [ -n "$ASSET_URL_ANY" ] && curl -fL "$ASSET_URL_ANY" -o "$TMP_ZIP" >/dev/null 2>&1
+        fi
+
+        if [ -f "$TMP_ZIP" ] && file "$TMP_ZIP" | grep -qi 'zip archive'; then
+          msg_info "Installing FIKA"
+          # The release zip contains SPT/user/mods/fika-server/ — strip the SPT/ prefix
+          # so mods land at /mnt/server/user/mods/fika-server/ as expected by the loader.
+          TMP_EXTRACT="$(mktemp -d)"
+          unzip -o "$TMP_ZIP" -d "$TMP_EXTRACT" > /dev/null 2>&1
+          if [ -d "$TMP_EXTRACT/SPT" ]; then
+            cp -a "$TMP_EXTRACT/SPT/." /mnt/server/
+          else
+            cp -a "$TMP_EXTRACT/." /mnt/server/
+          fi
+          rm -rf "$TMP_EXTRACT" "$TMP_ZIP"
+
+          # Pre-create the Fika config so Pelican can configure backendIp/port
+          # before the first startup (Fika generates it on first run otherwise,
+          # which would override the SPT http config with defaults of 0.0.0.0).
+          FIKA_CONFIGS="/mnt/server/user/mods/fika-server/assets/configs"
+          mkdir -p "$FIKA_CONFIGS"
+          if [ ! -f "$FIKA_CONFIGS/fika.jsonc" ]; then
+            cat > "$FIKA_CONFIGS/fika.jsonc" << 'FIKAEOF'
+      {
+        "client": {},
+        "server": {
+          "SPT": {
+            "http": {
+              "ip": "0.0.0.0",
+              "port": 6969,
+              "backendIp": "0.0.0.0",
+              "backendPort": 6969
+            }
+          }
+        },
+        "natPunchServer": {},
+        "headless": {},
+        "background": {}
+      }
+      FIKAEOF
+          fi
+
+          msg_ok "FIKA installed"
+        else
+          msg_info "FIKA asset not found or not a ZIP—skipping installation."
+        fi
+      fi
+      # -------------------------------------------------------------------------
+
+      msg_ok "Server installation and configuration completed successfully!"
+      rm -rf "${HOME}/dev" > /dev/null 2>&1
+    container: 'ghcr.io/shardbyte/installers:dotnet_10'
+    entrypoint: bash
+variables:
+  -
+    sort: 1
+    name: 'SPT Version'
+    description: 'Git branch or tag to compile the SPT C# server from (e.g. 4.0.2, main).'
+    env_variable: SPT_BRANCH
+    default_value: 4.0.2
+    user_viewable: true
+    user_editable: true
+    rules:
+      - required
+      - string
+      - 'between:3,20'
+  -
+    sort: 2
+    name: 'Install Fika'
+    description: "Choose if you want FIKA installed.  \r\n0 = NO\r\n1 = YES"
+    env_variable: SPT_FIKA
+    default_value: 0
+    user_viewable: true
+    user_editable: true
+    rules:
+      - required
+      - boolean
