@@ -27,7 +27,7 @@ All eggs in this repository use images from [`ghcr.io/shardbyte/yolks`](https://
 
 | Name | Path | Runtime Image |
 |---|---|---|
-| Project Tarkov: Fika Edition | [`games/eft/egg-eft-fika.yaml`](games/tarkov/egg-tarkov-fika.yaml) | `ghcr.io/shardbyte/yolks:debian` |
+| Project Tarkov: Fika Edition | [`games/eft/egg-eft-fika.yaml`](games/tarkov/egg-eft-fika.yaml) | `ghcr.io/shardbyte/yolks:debian` |
 
 ## Installing an Egg
 
