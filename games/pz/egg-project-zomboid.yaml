@@ -22,34 +22,7 @@ docker_images:
   "SteamCMD Debian": "ghcr.io/shardbyte/steamcmd:debian"
 file_denylist: []
 startup_commands:
-  Default: |-
-    [[ "${AUTO_UPDATE}" == "1" ]] && \
-    [[ -f "/home/container/.steamcmd/steamcmd.sh" ]] && \
-    (
-      cd "/home/container/.steamcmd" && \
-      ./steamcmd.sh \
-        +force_install_dir "/home/container" \
-        +login "anonymous" \
-        +app_update "${SRCDS_APPID}" \
-        $([[ -n "${SRCDS_BETAID}" ]] && echo "-beta ${SRCDS_BETAID}") \
-        $([[ -n "${SRCDS_BETAPASS}" ]] && echo "-betapassword ${SRCDS_BETAPASS}") \
-        validate \
-        +quit
-    ); \
-    mkdir -p ".steam/sdk32" ".steam/sdk64" "Zomboid/Server"; \
-    cp -f "/home/container/.steamcmd/linux32/steamclient.so" ".steam/sdk32/" 2>/dev/null; \
-    cp -f "/home/container/.steamcmd/linux64/steamclient.so" ".steam/sdk64/" 2>/dev/null; \
-    export PATH="./jre64/bin:${PATH}" \
-           LD_LIBRARY_PATH="./linux64:./natives:./:./jre64/lib/amd64:${LD_LIBRARY_PATH}" \
-           JAVA_TOOL_OPTIONS="{{JVM_FLAGS}}"; \
-    ./ProjectZomboid64 \
-      -port {{SERVER_PORT}} \
-      -udpport {{STEAM_PORT}} \
-      -cachedir="/home/container/cache" \
-      -servername "{{SERVER_NAME}}" \
-      -adminusername "{{ADMIN_USER}}" \
-      -adminpassword "{{ADMIN_PASSWORD}}" \
-      {{ADDITIONAL_ARGS}}
+  Default: '[[ "${AUTO_UPDATE}" == "1" ]] && [[ -f "/home/container/.steamcmd/steamcmd.sh" ]] && (cd "/home/container/.steamcmd" && ./steamcmd.sh +force_install_dir "/home/container" +login "anonymous" +app_update "${SRCDS_APPID}" $([[ -n "${SRCDS_BETAID}" ]] && echo "-beta ${SRCDS_BETAID}") $([[ -n "${SRCDS_BETAPASS}" ]] && echo "-betapassword ${SRCDS_BETAPASS}") validate +quit); mkdir -p ".steam/sdk32" ".steam/sdk64" "Zomboid/Server"; cp -f "/home/container/.steamcmd/linux32/steamclient.so" ".steam/sdk32/" 2>/dev/null; cp -f "/home/container/.steamcmd/linux64/steamclient.so" ".steam/sdk64/" 2>/dev/null; export PATH="./jre64/bin:${PATH}" LD_LIBRARY_PATH="./linux64:./natives:./:./jre64/lib/amd64:${LD_LIBRARY_PATH}" JAVA_TOOL_OPTIONS="{{JVM_FLAGS}}"; ./ProjectZomboid64 -port {{SERVER_PORT}} -udpport {{STEAM_PORT}} -cachedir="/home/container/cache" -servername "{{SERVER_NAME}}" -adminusername "{{ADMIN_USER}}" -adminpassword "{{ADMIN_PASSWORD}}" {{ADDITIONAL_ARGS}}'
 config:
   files: {}
   startup:
@@ -68,7 +41,7 @@ scripts:
       # Copyright (c) 2023-2026 Shardbyte
       # Author: Shardbyte (Saint)
       # Server Files: /mnt/server
-      ######  BEGIN FILE  ###### ######  BEGIN FILE  ###### ######  BEGIN FILE  ######
+      ######  BEGIN FILE  ######
 
       YW=$(echo "\033[33m")
       GN=$(echo "\033[1;92m")
@@ -139,10 +112,7 @@ scripts:
       # before the first start. PZ generates the full .ini on first run; we only
       # need to ensure the directory tree is in place for the mount to work.
       mkdir -p "/mnt/server/Zomboid/Server" \
-               "/mnt/server/Zomboid/Saves/Multiplayer" \
-               "/mnt/server/cache" \
-               "/mnt/server/backups" \
-               "/mnt/server/logs"
+               "/mnt/server/Zomboid/Saves/Multiplayer"
       msg_ok "Persistent data directories initialised"
 
       # Write a minimal server ini so MaxPlayers is set before the first boot.
