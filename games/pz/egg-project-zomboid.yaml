@@ -212,7 +212,7 @@ variables:
     name: "Initial JVM Heap (MB)"
     description: "JVM -Xms value in megabytes. The JVM allocates this at startup and grows to JVM_XMX as needed. A lower value reduces startup memory and lets the heap scale under load. Build 42 minimum: 1024 MB."
     env_variable: JVM_XMS
-    default_value: "2048"
+    default_value: "4096"
     user_viewable: true
     user_editable: false
     rules:
@@ -223,7 +223,7 @@ variables:
     name: "Max JVM Heap (MB)"
     description: "JVM -Xmx value in megabytes. Formula: (MaxPlayers * 500) + 2048. Build 42 minimum: 4096 MB. Build 41 can run at 2048 MB for small servers."
     env_variable: JVM_XMX
-    default_value: "4096"
+    default_value: "8192"
     user_viewable: true
     user_editable: false
     rules:
@@ -255,7 +255,7 @@ variables:
     name: "JVM Flags"
     description: "Extra JVM flags injected via JAVA_TOOL_OPTIONS. Heap size (-Xms/-Xmx) is controlled by JVM_XMS and JVM_XMX. Defaults use G1GC tuned for Java 17 (bundled with Build 42). Invalid flags will crash the server on start — edit with care."
     env_variable: JVM_FLAGS
-    default_value: "-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+DisableExplicitGC -Djava.awt.headless=true"
+    default_value: "-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+DisableExplicitGC -Djava.awt.headless=true -Dfile.encoding=UTF-8 -Duser.timezone=UTC"
     user_viewable: true
     user_editable: true
     rules:
