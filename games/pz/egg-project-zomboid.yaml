@@ -1,8 +1,8 @@
 meta:
   version: PLCN_v3
-  update_url: 'https://raw.githubusercontent.com/Shardbyte/shard-egg-basket/refs/heads/main/games/pz/egg-project-zomboid.yaml'
-exported_at: '2026-05-25T00:00:00+00:00'
-name: 'Project Zomboid'
+  update_url: "https://raw.githubusercontent.com/Shardbyte/shard-egg-basket/refs/heads/main/games/pz/egg-project-zomboid.yaml"
+exported_at: "2026-05-25T00:00:00+00:00"
+name: "Project Zomboid"
 author: saint@shardbyte.com
 uuid: 26dba416-3913-4215-a80a-6df3a28d3c8f
 description: |-
@@ -19,14 +19,14 @@ tags:
 features:
   - steam_disk_space
 docker_images:
-  'SteamCMD Debian': 'ghcr.io/shardbyte/steamcmd:debian'
+  "SteamCMD Debian": "ghcr.io/shardbyte/steamcmd:debian"
 file_denylist: []
 startup_commands:
   Default: '[[ "${AUTO_UPDATE}" == "1" ]] && [[ -f /home/container/.steamcmd/steamcmd.sh ]] && (cd /home/container/.steamcmd && ./steamcmd.sh +force_install_dir /home/container +login anonymous +app_update ${SRCDS_APPID} $([[ -n "${SRCDS_BETAID}" ]] && echo "-beta ${SRCDS_BETAID}") validate +quit); mkdir -p .steam/sdk32 .steam/sdk64 Zomboid/Server; cp -f /home/container/.steamcmd/linux32/steamclient.so .steam/sdk32/ 2>/dev/null; cp -f /home/container/.steamcmd/linux64/steamclient.so .steam/sdk64/ 2>/dev/null; export PATH="./jre64/bin:${PATH}" LD_LIBRARY_PATH="./linux64:./natives:./:./jre64/lib/amd64:${LD_LIBRARY_PATH}" JAVA_TOOL_OPTIONS="{{JVM_FLAGS}}" && LD_PRELOAD="${LD_PRELOAD}:libjsig.so" ./ProjectZomboid64 -Xms{{JVM_XMS}}m -Xmx{{JVM_XMX}}m -port {{SERVER_PORT}} -udpport {{STEAM_PORT}} -cachedir=/home/container/cache -servername "{{SERVER_NAME}}" -adminusername {{ADMIN_USER}} -adminpassword "{{ADMIN_PASSWORD}}"'
 config:
   files: {}
   startup:
-    done: 'SERVER STARTED'
+    done: "SERVER STARTED"
   logs: {}
   stop: quit
 scripts:
@@ -139,25 +139,33 @@ scripts:
       msg_ok "Installation complete — server is ready to start"
       echo " Tip: Edit Zomboid/Server/${SERVER_NAME}.ini via SFTP to tune sandbox and server settings."
       echo " Tip: Build 42 first-boot cache rebuild can take 2-3 minutes — be patient before assuming failure."
-    container: 'ghcr.io/shardbyte/installers:debian'
+    container: "ghcr.io/shardbyte/installers:debian"
     entrypoint: bash
 variables:
-  -
-    sort: 1
-    name: 'Server Name'
-    description: 'Internal name used for save and config files (Zomboid/Server/<name>.ini). Alphanumeric and underscores only. Changing this after first start will create a new world — the old one is not deleted.'
+  - sort: 1
+    name: "Server Name"
+    description: "Internal name used for save and config files (Zomboid/Server/<name>.ini). Alphanumeric and underscores only. Changing this after first start will create a new world — the old one is not deleted."
     env_variable: SERVER_NAME
     default_value: PelicanPZ
     user_viewable: true
     user_editable: true
     rules:
       - required
-      - 'regex:/^[a-zA-Z0-9_]+$/'
-      - 'max:64'
-  -
-    sort: 2
-    name: 'Admin Username'
-    description: 'Username for the in-game admin account. Used with /setaccesslevel commands.'
+      - "regex:/^[a-zA-Z0-9_]+$/"
+      - "max:64"
+  - sort: 2
+    name: "Auto Update"
+    description: "Update server files on each container start using the pre-installed steamcmd. 1 to enable, 0 to disable. Adds ~1 min to startup time when an update is available."
+    env_variable: AUTO_UPDATE
+    default_value: "1"
+    user_viewable: true
+    user_editable: true
+    rules:
+      - required
+      - boolean
+  - sort: 3
+    name: "Admin Username"
+    description: "Username for the in-game admin account. Used with /setaccesslevel commands."
     env_variable: ADMIN_USER
     default_value: admin
     user_viewable: true
@@ -165,117 +173,97 @@ variables:
     rules:
       - required
       - string
-      - 'max:20'
-  -
-    sort: 3
-    name: 'Admin Password'
-    description: 'Password for the in-game admin account. Controls full server access — use a strong password.'
+      - "max:20"
+  - sort: 4
+    name: "Admin Password"
+    description: "Password for the in-game admin account. Controls full server access — use a strong password."
     env_variable: ADMIN_PASSWORD
-    default_value: ''
+    default_value: ""
     user_viewable: true
     user_editable: true
     rules:
       - required
       - string
-      - 'min:6'
-      - 'max:64'
-  -
-    sort: 4
-    name: 'Game Port (UDP)'
-    description: 'Primary UDP port clients connect to. Must match your Pelican port allocation. Default: 16261.'
+      - "min:6"
+      - "max:64"
+  - sort: 5
+    name: "Game Port (UDP)"
+    description: "Primary UDP port clients connect to. Must match your Pelican port allocation. Default: 16261."
     env_variable: SERVER_PORT
-    default_value: '16261'
+    default_value: "16261"
     user_viewable: true
     user_editable: false
     rules:
       - required
       - numeric
-      - 'between:1024,65535'
-  -
-    sort: 5
-    name: 'Steam / NAT Port (UDP)'
-    description: 'Secondary UDP port for Steam networking. Must also be open in your firewall. Typically game port + 1. Default: 16262.'
+      - "between:1024,65535"
+  - sort: 6
+    name: "Steam / NAT Port (UDP)"
+    description: "Secondary UDP port for Steam networking. Must also be open in your firewall. Typically game port + 1. Default: 16262."
     env_variable: STEAM_PORT
-    default_value: '16262'
+    default_value: "16262"
     user_viewable: true
     user_editable: false
     rules:
       - required
       - numeric
-      - 'between:1024,65535'
-  -
-    sort: 6
-    name: 'Max Players'
-    description: 'Maximum concurrent players. ~500 MB RAM per player is a safe estimate. Written to the server ini on install. To change after first start, edit Zomboid/Server/<ServerName>.ini via SFTP and restart.'
-    env_variable: MAX_PLAYERS
-    default_value: '16'
-    user_viewable: true
-    user_editable: false
-    rules:
-      - required
-      - numeric
-      - 'between:1,100'
-  -
-    sort: 7
-    name: 'Initial JVM Heap (MB)'
-    description: 'JVM -Xms value in megabytes. The JVM allocates this at startup and grows to JVM_XMX as needed. A lower value reduces startup memory and lets the heap scale under load. Build 42 minimum: 1024 MB.'
+      - "between:1024,65535"
+  - sort: 7
+    name: "Initial JVM Heap (MB)"
+    description: "JVM -Xms value in megabytes. The JVM allocates this at startup and grows to JVM_XMX as needed. A lower value reduces startup memory and lets the heap scale under load. Build 42 minimum: 1024 MB."
     env_variable: JVM_XMS
-    default_value: '2048'
+    default_value: "2048"
     user_viewable: true
     user_editable: false
     rules:
       - required
       - numeric
-      - 'between:512,32768'
-  -
-    sort: 8
-    name: 'Max JVM Heap (MB)'
-    description: 'JVM -Xmx value in megabytes. Formula: (MaxPlayers * 500) + 2048. Build 42 minimum: 4096 MB. Build 41 can run at 2048 MB for small servers.'
+      - "between:512,32768"
+  - sort: 8
+    name: "Max JVM Heap (MB)"
+    description: "JVM -Xmx value in megabytes. Formula: (MaxPlayers * 500) + 2048. Build 42 minimum: 4096 MB. Build 41 can run at 2048 MB for small servers."
     env_variable: JVM_XMX
-    default_value: '4096'
+    default_value: "4096"
     user_viewable: true
     user_editable: false
     rules:
       - required
       - numeric
-      - 'between:1024,65536'
-  -
-    sort: 9
-    name: 'JVM Flags'
-    description: 'Extra JVM flags injected via JAVA_TOOL_OPTIONS. Heap size (-Xms/-Xmx) is controlled by JVM_XMS and JVM_XMX. Defaults use G1GC tuned for Java 17 (bundled with Build 42). Invalid flags will crash the server on start — edit with care.'
-    env_variable: JVM_FLAGS
-    default_value: '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+DisableExplicitGC -Djava.awt.headless=true'
+      - "between:1024,65536"
+  - sort: 9
+    name: "Max Players"
+    description: "Maximum concurrent players. ~500 MB RAM per player is a safe estimate. Written to the server ini on install. To change after first start, edit Zomboid/Server/<ServerName>.ini via SFTP and restart."
+    env_variable: MAX_PLAYERS
+    default_value: "16"
     user_viewable: true
-    user_editable: true
-    rules:
-      - nullable
-      - string
-      - 'max:256'
-  -
-    sort: 10
-    name: 'Auto Update'
-    description: 'Update server files on each container start using the pre-installed steamcmd. 1 to enable, 0 to disable. Adds ~1 min to startup time when an update is available.'
-    env_variable: AUTO_UPDATE
-    default_value: '1'
-    user_viewable: true
-    user_editable: true
+    user_editable: false
     rules:
       - required
-      - boolean
-  -
-    sort: 11
-    name: 'Steam App ID'
-    description: 'Project Zomboid dedicated server Steam App ID. Do not modify.'
+      - numeric
+      - "between:1,100"
+  - sort: 10
+    name: "Steam App ID"
+    description: "Project Zomboid dedicated server Steam App ID. Do not modify."
     env_variable: SRCDS_APPID
-    default_value: '380870'
+    default_value: "380870"
     user_viewable: false
     user_editable: false
     rules:
       - required
       - numeric
-  -
-    sort: 12
-    name: 'Steam Beta Branch'
+  - sort: 11
+    name: "JVM Flags"
+    description: "Extra JVM flags injected via JAVA_TOOL_OPTIONS. Heap size (-Xms/-Xmx) is controlled by JVM_XMS and JVM_XMX. Defaults use G1GC tuned for Java 17 (bundled with Build 42). Invalid flags will crash the server on start — edit with care."
+    env_variable: JVM_FLAGS
+    default_value: "-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+DisableExplicitGC -Djava.awt.headless=true"
+    user_viewable: true
+    user_editable: true
+    rules:
+      - nullable
+      - string
+      - "max:256"
+  - sort: 12
+    name: "Steam Beta Branch"
     description: "SteamCMD beta branch to install. Set to 'unstable' for Build 42 (2025/2026 current). Leave empty for Build 41 (stable). Requires a reinstall to change branches."
     env_variable: SRCDS_BETAID
     default_value: unstable
@@ -284,16 +272,15 @@ variables:
     rules:
       - nullable
       - string
-      - 'max:64'
-  -
-    sort: 13
-    name: 'Beta Branch Password'
-    description: 'Password for a private beta branch. Leave empty for public branches like unstable.'
+      - "max:64"
+  - sort: 13
+    name: "Beta Branch Password"
+    description: "Password for a private beta branch. Leave empty for public branches like unstable."
     env_variable: SRCDS_BETAPASS
-    default_value: ''
+    default_value: ""
     user_viewable: true
     user_editable: true
     rules:
       - nullable
       - string
-      - 'max:64'
+      - "max:64"
