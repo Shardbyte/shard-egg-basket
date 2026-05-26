@@ -22,7 +22,7 @@ docker_images:
   'SteamCMD Debian': 'ghcr.io/shardbyte/steamcmd:debian'
 file_denylist: []
 startup_commands:
-  Default: '[[ "${AUTO_UPDATE}" == "1" ]] && [[ -f /home/container/.steamcmd/steamcmd.sh ]] && (cd /home/container/.steamcmd && ./steamcmd.sh +force_install_dir /home/container +login anonymous +app_update ${SRCDS_APPID} $([[ -n "${SRCDS_BETAID}" ]] && echo "-beta ${SRCDS_BETAID}") validate +quit); mkdir -p .steam/sdk32 .steam/sdk64 Zomboid/Server; cp -f /home/container/.steamcmd/linux32/steamclient.so .steam/sdk32/ 2>/dev/null; cp -f /home/container/.steamcmd/linux64/steamclient.so .steam/sdk64/ 2>/dev/null; export PATH="./jre64/bin:${PATH}" LD_LIBRARY_PATH="./linux64:./natives:./:./jre64/lib/amd64:${LD_LIBRARY_PATH}" JAVA_TOOL_OPTIONS="{{JVM_FLAGS}}" && LD_PRELOAD="${LD_PRELOAD}:libjsig.so" ./ProjectZomboid64 -Xms{{MEMORY}}m -Xmx{{MEMORY}}m -port {{SERVER_PORT}} -udpport {{STEAM_PORT}} -cachedir=/home/container -servername "{{SERVER_NAME}}" -adminusername {{ADMIN_USER}} -adminpassword "{{ADMIN_PASSWORD}}"'
+  Default: '[[ "${AUTO_UPDATE}" == "1" ]] && [[ -f /home/container/.steamcmd/steamcmd.sh ]] && (cd /home/container/.steamcmd && ./steamcmd.sh +force_install_dir /home/container +login anonymous +app_update ${SRCDS_APPID} $([[ -n "${SRCDS_BETAID}" ]] && echo "-beta ${SRCDS_BETAID}") validate +quit); mkdir -p .steam/sdk32 .steam/sdk64 Zomboid/Server; cp -f /home/container/.steamcmd/linux32/steamclient.so .steam/sdk32/ 2>/dev/null; cp -f /home/container/.steamcmd/linux64/steamclient.so .steam/sdk64/ 2>/dev/null; export PATH="./jre64/bin:${PATH}" LD_LIBRARY_PATH="./linux64:./natives:./:./jre64/lib/amd64:${LD_LIBRARY_PATH}" JAVA_TOOL_OPTIONS="{{JVM_FLAGS}}" && LD_PRELOAD="${LD_PRELOAD}:libjsig.so" ./ProjectZomboid64 -Xms{{JVM_XMS}}m -Xmx{{JVM_XMX}}m -port {{SERVER_PORT}} -udpport {{STEAM_PORT}} -cachedir=/home/container/cache -servername "{{SERVER_NAME}}" -adminusername {{ADMIN_USER}} -adminpassword "{{ADMIN_PASSWORD}}"'
 config:
   files: {}
   startup:
@@ -111,8 +111,11 @@ scripts:
       # Pre-create the persistent data directories so they exist on the volume
       # before the first start. PZ generates the full .ini on first run; we only
       # need to ensure the directory tree is in place for the mount to work.
-      mkdir -p "/mnt/server/Zomboid/Server"
-      mkdir -p "/mnt/server/Zomboid/Saves/Multiplayer"
+      mkdir -p "/mnt/server/Zomboid/Server" \
+               "/mnt/server/Zomboid/Saves/Multiplayer" \
+               "/mnt/server/cache" \
+               "/mnt/server/backups" \
+               "/mnt/server/logs"
       msg_ok "Persistent data directories initialised"
 
       # Write a minimal server ini so MaxPlayers is set before the first boot.
@@ -214,22 +217,34 @@ variables:
       - 'between:1,100'
   -
     sort: 7
-    name: 'Memory (MB)'
-    description: 'JVM heap allocation in megabytes. Formula: (MaxPlayers * 500) + 2048. Build 42 minimum is 4096 MB. Build 41 can run at 2048 MB for small servers.'
-    env_variable: MEMORY
+    name: 'Initial JVM Heap (MB)'
+    description: 'JVM -Xms value in megabytes. The JVM allocates this at startup and grows to JVM_XMX as needed. A lower value reduces startup memory and lets the heap scale under load. Build 42 minimum: 1024 MB.'
+    env_variable: JVM_XMS
+    default_value: '2048'
+    user_viewable: true
+    user_editable: false
+    rules:
+      - required
+      - numeric
+      - 'between:512,32768'
+  -
+    sort: 8
+    name: 'Max JVM Heap (MB)'
+    description: 'JVM -Xmx value in megabytes. Formula: (MaxPlayers * 500) + 2048. Build 42 minimum: 4096 MB. Build 41 can run at 2048 MB for small servers.'
+    env_variable: JVM_XMX
     default_value: '4096'
     user_viewable: true
     user_editable: false
     rules:
       - required
       - numeric
-      - 'between:2048,32768'
+      - 'between:1024,65536'
   -
-    sort: 8
+    sort: 9
     name: 'JVM Flags'
-    description: 'Extra JVM flags injected via JAVA_TOOL_OPTIONS. Heap size (-Xms/-Xmx) is set separately from the Memory variable. Defaults use ZGC tuned for Java 17 (bundled with Build 42). Invalid flags will crash the server on start — edit with care.'
+    description: 'Extra JVM flags injected via JAVA_TOOL_OPTIONS. Heap size (-Xms/-Xmx) is controlled by JVM_XMS and JVM_XMX. Defaults use G1GC tuned for Java 17 (bundled with Build 42). Invalid flags will crash the server on start — edit with care.'
     env_variable: JVM_FLAGS
-    default_value: '-XX:+UseZGC -XX:ZUncommitDelay=300 -XX:-OmitStackTraceInFastThrow -XX:-CreateCoredumpOnCrash -Djava.awt.headless=true'
+    default_value: '-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+DisableExplicitGC -Djava.awt.headless=true'
     user_viewable: true
     user_editable: true
     rules:
@@ -237,7 +252,7 @@ variables:
       - string
       - 'max:256'
   -
-    sort: 9
+    sort: 10
     name: 'Auto Update'
     description: 'Update server files on each container start using the pre-installed steamcmd. 1 to enable, 0 to disable. Adds ~1 min to startup time when an update is available.'
     env_variable: AUTO_UPDATE
@@ -248,7 +263,7 @@ variables:
       - required
       - boolean
   -
-    sort: 10
+    sort: 11
     name: 'Steam App ID'
     description: 'Project Zomboid dedicated server Steam App ID. Do not modify.'
     env_variable: SRCDS_APPID
@@ -259,7 +274,7 @@ variables:
       - required
       - numeric
   -
-    sort: 11
+    sort: 12
     name: 'Steam Beta Branch'
     description: "SteamCMD beta branch to install. Set to 'unstable' for Build 42 (2025/2026 current). Leave empty for Build 41 (stable). Requires a reinstall to change branches."
     env_variable: SRCDS_BETAID
@@ -271,7 +286,7 @@ variables:
       - string
       - 'max:64'
   -
-    sort: 12
+    sort: 13
     name: 'Beta Branch Password'
     description: 'Password for a private beta branch. Leave empty for public branches like unstable.'
     env_variable: SRCDS_BETAPASS
