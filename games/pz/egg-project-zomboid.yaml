@@ -22,7 +22,7 @@ docker_images:
   "SteamCMD Debian": "ghcr.io/shardbyte/steamcmd:debian"
 file_denylist: []
 startup_commands:
-  Default: '[[ "${AUTO_UPDATE}" == "1" ]] && [[ -f "/home/container/.steamcmd/steamcmd.sh" ]] && (cd "/home/container/.steamcmd" && ./steamcmd.sh +force_install_dir "/home/container" +login "anonymous" +app_update "${SRCDS_APPID}" $([[ -n "${SRCDS_BETAID}" ]] && echo "-beta ${SRCDS_BETAID}") $([[ -n "${SRCDS_BETAPASS}" ]] && echo "-betapassword ${SRCDS_BETAPASS}") validate +quit); mkdir -p ".steam/sdk32" ".steam/sdk64" "Zomboid/Server"; cp -f "/home/container/.steamcmd/linux32/steamclient.so" ".steam/sdk32/" 2>/dev/null; cp -f "/home/container/.steamcmd/linux64/steamclient.so" ".steam/sdk64/" 2>/dev/null; export PATH="./jre64/bin:${PATH}" LD_LIBRARY_PATH="./linux64:./natives:./:./jre64/lib/amd64:${LD_LIBRARY_PATH}" JAVA_TOOL_OPTIONS="{{JVM_FLAGS}}"; ./ProjectZomboid64 -port {{SERVER_PORT}} -udpport {{STEAM_PORT}} -cachedir="/home/container/Zomboid" -servername "{{SERVER_NAME}}" -adminusername "{{ADMIN_USER}}" -adminpassword "{{ADMIN_PASSWORD}}" {{ADDITIONAL_ARGS}}'
+  Default: '[[ "${AUTO_UPDATE}" == "1" ]] && [[ -f "/home/container/.steamcmd/steamcmd.sh" ]] && (cd "/home/container/.steamcmd" && ./steamcmd.sh +force_install_dir "/home/container" +login "anonymous" +app_update "${SRCDS_APPID}" $([[ -n "${SRCDS_BETAID}" ]] && echo "-beta ${SRCDS_BETAID}") $([[ -n "${SRCDS_BETAPASS}" ]] && echo "-betapassword ${SRCDS_BETAPASS}") validate +quit); mkdir -p ".steam/sdk32" ".steam/sdk64" "Zomboid/Server"; cp -f "/home/container/.steamcmd/linux32/steamclient.so" ".steam/sdk32/" 2>/dev/null; cp -f "/home/container/.steamcmd/linux64/steamclient.so" ".steam/sdk64/" 2>/dev/null; export PATH="./jre64/bin:${PATH}" LD_LIBRARY_PATH="./linux64:./natives:./:./jre64/lib/amd64:${LD_LIBRARY_PATH}" JAVA_TOOL_OPTIONS="{{JVM_FLAGS}}"; ./ProjectZomboid64 -port {{GAME_PORT}} -udpport {{STEAM_PORT}} -cachedir="/home/container/Zomboid" -servername "{{SERVER_NAME}}" -adminusername "{{ADMIN_USER}}" -adminpassword "{{ADMIN_PASSWORD}}" {{ADDITIONAL_ARGS}}'
 config:
   files: {}
   startup:
@@ -122,7 +122,7 @@ scripts:
       if [[ ! -f "${INI_PATH}" ]]; then
         {
           echo "MaxPlayers=${MAX_PLAYERS}"
-          echo "Port=${SERVER_PORT}"
+          echo "Port=${GAME_PORT}"
           echo "UDPPort=${STEAM_PORT}"
           echo "Open=false"
           echo "Public=false"
@@ -186,7 +186,7 @@ variables:
   - sort: 5
     name: "Game Port (UDP)"
     description: "Primary UDP port clients connect to. Must match your Pelican port allocation. Default: 16261."
-    env_variable: SERVER_PORT
+    env_variable: GAME_PORT
     default_value: "16261"
     user_viewable: true
     user_editable: false
