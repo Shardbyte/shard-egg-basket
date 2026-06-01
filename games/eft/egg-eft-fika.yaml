@@ -309,7 +309,7 @@ variables:
     name: 'Install Fika'
     description: "Choose if you want FIKA installed."
     env_variable: SPT_FIKA
-    default_value: 0
+    default_value: '0'
     user_viewable: true
     user_editable: true
     rules:

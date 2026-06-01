@@ -1,0 +1,297 @@
+meta:
+  version: PLCN_v3
+  update_url: "https://raw.githubusercontent.com/Shardbyte/shard-egg-basket/refs/heads/main/games/mc/forge/egg-minecraft-forge.yaml"
+exported_at: "2026-06-01T00:00:00+00:00"
+name: "Minecraft Forge"
+author: saint@shardbyte.com
+uuid: 3c76d698-0559-472d-83f3-004dc3012b1d
+description: |-
+  Run a modded Minecraft server with your friends. Forge lets you install mod packs so
+  everyone can play together -- from tech mods like Create to adventure packs like RLCraft.
+
+  Getting started:
+    - Set Minecraft Version to match what your mod pack requires (e.g. 1.20.1)
+    - Pick the Java version shown on your mod pack's download page
+    - Leave Forge Version blank to auto-install the right build, or enter an exact version
+      if your mod pack requires one
+    - Build Type: use "recommended" for stable releases, "latest" for newer builds
+
+  Tip: If the server crashes right after starting, the Java version is usually the cause.
+  Check your mod pack's page for the required Java version and update the dropdown to match.
+image: null
+tags:
+  - minecraft
+  - forge
+  - modded
+  - java
+features:
+  - eula
+  - java_version
+  - pid_limit
+docker_images:
+  "Java 25": "ghcr.io/shardbyte/yolks:java_25"
+  "Java 21": "ghcr.io/shardbyte/yolks:java_21"
+  "Java 17": "ghcr.io/shardbyte/yolks:java_17"
+  "Java 16": "ghcr.io/shardbyte/yolks:java_16"
+  "Java 11": "ghcr.io/shardbyte/yolks:java_11"
+  "Java 8":  "ghcr.io/shardbyte/yolks:java_8"
+file_denylist: []
+startup_commands:
+  Default: 'java -Xms128M -XX:MaxRAMPercentage=95.0 -Dterminal.jline=false -Dterminal.ansi=true {{JVM_FLAGS}} $( [[ ! -f unix_args.txt ]] && printf %s "-jar {{SERVER_JARFILE}}" || printf %s "@unix_args.txt" ) nogui {{EXTRA_ARGS}}'
+config:
+  files:
+    server.properties:
+      parser: properties
+      find:
+        server-ip: ""
+        server-port: "{{server.allocations.default.port}}"
+        query.port: "{{server.allocations.default.port}}"
+  startup:
+    done: ")! For help, type "
+  logs: {}
+  stop: stop
+scripts:
+  installation:
+    script: |
+      #!/usr/bin/env bash
+      ###########################
+      #                         #
+      #  Saint @ Shardbyte.com  #
+      #                         #
+      ###########################
+      # Copyright (c) 2023-2026 Shardbyte
+      # Author: Shardbyte (Saint)
+      # Server Files: /mnt/server
+      ######  BEGIN FILE  ######
+
+      YW=$(echo "\033[33m")
+      GN=$(echo "\033[1;92m")
+      CL=$(echo "\033[m")
+      BFR="\\r\\033[K"
+      HOLD="[INFO]"
+      CM="${GN}✓${CL}"
+
+      msg_info() { echo -ne " ${GN}${HOLD}${CL} ${YW}$1${CL}\n"; }
+      msg_ok()   { echo -e  "${BFR} ${CM} ${GN}$1${CL}\n"; }
+      msg_err()  { echo -e  "\\r\\033[K [ERROR] $1\\n"; exit 1; }
+
+      # ── Prerequisites ──────────────────────────────────────────────────────
+      msg_info "Installing prerequisites"
+      apt-get update -qq > /dev/null 2>&1
+      apt-get install -y --no-install-recommends curl jq > /dev/null 2>&1
+      msg_ok "Prerequisites ready"
+
+      mkdir -p /mnt/server
+      cd /mnt/server || msg_err "Failed to enter /mnt/server"
+
+      # ── Sanitize user inputs ───────────────────────────────────────────────
+      FORGE_VERSION="${FORGE_VERSION// /}"
+      MC_VERSION="${MC_VERSION// /}"
+
+      # ── Version resolution ────────────────────────────────────────────────
+      if [[ -n "${FORGE_VERSION}" ]]; then
+        # Exact version provided — build the Maven download path directly.
+        DOWNLOAD_LINK="https://maven.minecraftforge.net/net/minecraftforge/forge/${FORGE_VERSION}/forge-${FORGE_VERSION}"
+        FORGE_JAR="forge-${FORGE_VERSION}*.jar"
+        msg_info "Using explicit Forge version: ${FORGE_VERSION}"
+      else
+        # Auto-resolve from the Forge promotions manifest.
+        msg_info "Fetching Forge promotions manifest"
+        JSON_DATA=$(curl -fsSL https://files.minecraftforge.net/maven/net/minecraftforge/forge/promotions_slim.json) \
+          || msg_err "Failed to fetch Forge manifest; check network connectivity"
+
+        if [[ "${MC_VERSION}" == "latest" ]] || [[ -z "${MC_VERSION}" ]]; then
+          msg_info "Resolving latest Minecraft version from manifest"
+          # Minecraft switched to year-based versioning in 2026 (26.1, 26.2, ...).
+          # Both 1.x.x and 26.x.x+ keys are valid; numeric sort on major version picks the newest.
+          MC_VERSION=$(echo "${JSON_DATA}" | jq -r '
+            .promos
+              | del(."latest-1.7.10")
+              | del(."1.7.10-latest-1.7.10")
+              | to_entries[]
+              | .key
+              | select(contains("latest"))
+              | split("-")[0]
+          ' | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1)
+          [[ -z "${MC_VERSION}" ]] && msg_err "Could not resolve latest Minecraft version from manifest"
+          BUILD_TYPE=latest
+        fi
+
+        if [[ "${BUILD_TYPE}" != "recommended" ]] && [[ "${BUILD_TYPE}" != "latest" ]]; then
+          BUILD_TYPE=recommended
+        fi
+
+        msg_info "Resolving Forge ${BUILD_TYPE} build for Minecraft ${MC_VERSION}"
+
+        FILE_SITE="https://maven.minecraftforge.net/net/minecraftforge/forge/"
+
+        VERSION_KEY=$(echo "${JSON_DATA}" | jq -r \
+          --arg MC "${MC_VERSION}" \
+          --arg BT "${BUILD_TYPE}" '
+            .promos
+              | del(."latest-1.7.10")
+              | del(."1.7.10-latest-1.7.10")
+              | to_entries[]
+              | .key
+              | select(contains($MC))
+              | select(contains($BT))
+          ')
+
+        # Fall back from recommended to latest when no stable build exists for this MC version.
+        if [[ -z "${VERSION_KEY}" ]] && [[ "${BUILD_TYPE}" == "recommended" ]]; then
+          msg_info "No recommended build for MC ${MC_VERSION}; falling back to latest"
+          VERSION_KEY=$(echo "${JSON_DATA}" | jq -r \
+            --arg MC "${MC_VERSION}" '
+              .promos
+                | del(."latest-1.7.10")
+                | del(."1.7.10-latest-1.7.10")
+                | to_entries[]
+                | .key
+                | select(contains($MC))
+                | select(contains("latest"))
+            ')
+        fi
+
+        if [[ -z "${VERSION_KEY}" ]] || [[ "${VERSION_KEY}" == "null" ]]; then
+          msg_err "No Forge build found for Minecraft ${MC_VERSION}. Verify MC_VERSION is a supported release."
+        fi
+
+        FORGE_VERSION=$(echo "${JSON_DATA}" | jq -r --arg KEY "${VERSION_KEY}" '.promos[$KEY]')
+        [[ -z "${FORGE_VERSION}" || "${FORGE_VERSION}" == "null" ]] \
+          && msg_err "Failed to extract Forge version from manifest for key: ${VERSION_KEY}"
+
+        msg_info "Resolved: Minecraft ${MC_VERSION} → Forge ${FORGE_VERSION}"
+
+        # Build Maven URL — 1.7.10 and 1.8.9 use a non-standard path suffix.
+        if [[ "${MC_VERSION}" == "1.7.10" ]] || [[ "${MC_VERSION}" == "1.8.9" ]]; then
+          DOWNLOAD_LINK="${FILE_SITE}${MC_VERSION}-${FORGE_VERSION}-${MC_VERSION}/forge-${MC_VERSION}-${FORGE_VERSION}-${MC_VERSION}"
+          FORGE_JAR="forge-${MC_VERSION}-${FORGE_VERSION}-${MC_VERSION}.jar"
+          [[ "${MC_VERSION}" == "1.7.10" ]] \
+            && FORGE_JAR="forge-${MC_VERSION}-${FORGE_VERSION}-${MC_VERSION}-universal.jar"
+        else
+          DOWNLOAD_LINK="${FILE_SITE}${MC_VERSION}-${FORGE_VERSION}/forge-${MC_VERSION}-${FORGE_VERSION}"
+          FORGE_JAR="forge-${MC_VERSION}-${FORGE_VERSION}.jar"
+        fi
+      fi
+
+      # ── Normalize server jar filename ─────────────────────────────────────
+      [[ "${SERVER_JARFILE}" != *.jar ]] && SERVER_JARFILE="${SERVER_JARFILE}.jar"
+
+      # ── Validate installer URL before downloading ─────────────────────────
+      [[ -z "${DOWNLOAD_LINK}" ]] && msg_err "No download link was resolved. Aborting."
+
+      msg_info "Checking installer URL: ${DOWNLOAD_LINK}-installer.jar"
+      if ! curl --output /dev/null --silent --head --fail "${DOWNLOAD_LINK}-installer.jar"; then
+        msg_err "Installer URL is unreachable: ${DOWNLOAD_LINK}-installer.jar — verify version strings and retry"
+      fi
+      msg_ok "Installer URL verified"
+
+      # ── Download Forge installer ──────────────────────────────────────────
+      msg_info "Downloading Forge ${FORGE_VERSION} installer"
+      curl -fsSL -o installer.jar "${DOWNLOAD_LINK}-installer.jar" \
+        || msg_err "Download failed: ${DOWNLOAD_LINK}-installer.jar"
+      [[ ! -f installer.jar ]] && msg_err "installer.jar not present after download"
+      msg_ok "Forge ${FORGE_VERSION} installer downloaded"
+
+      # ── Remove stale Forge libraries (supports upgrade and downgrade) ──────
+      rm -rf libraries/net/minecraftforge/forge unix_args.txt
+
+      # ── Run Forge installer ───────────────────────────────────────────────
+      msg_info "Installing Forge server (MC ${MC_VERSION} / Forge ${FORGE_VERSION})"
+      java -jar installer.jar --installServer \
+        || msg_err "Forge installer failed. Ensure install memory exceeds 512 MB. MC 1.12.2 and older require a Java 8 installer image."
+      msg_ok "Forge server installed"
+
+      # ── Post-install: unix_args.txt symlink (Forge 1.17+) ─────────────────
+      # Forge 1.17+ uses JPMS and requires unix_args.txt for --add-opens flags.
+      # Covers old scheme 1.17–1.99 and year-based scheme 20.x+ (e.g. 26.1.x).
+      unix_args_setup() {
+        ln -sf libraries/net/minecraftforge/forge/*/unix_args.txt unix_args.txt \
+          && msg_ok "unix_args.txt symlinked (Forge 1.17+ JPMS args)" \
+          || msg_err "Failed to create unix_args.txt symlink; check that the installer ran successfully"
+      }
+
+      if [[ "${MC_VERSION}" =~ ^1\.(1[7-9]|[2-9][0-9]) ]] \
+        || [[ "${MC_VERSION}" =~ ^[2-9][0-9] ]] \
+        || [[ "${FORGE_VERSION}" =~ ^1\.(1[7-9]|[2-9][0-9]) ]] \
+        || [[ "${FORGE_VERSION}" =~ ^[2-9][0-9] ]]; then
+        unix_args_setup
+      else
+        # Pre-1.17: rename the server jar to the configured filename.
+        # FORGE_JAR may contain a glob — intentionally unquoted for shell expansion.
+        # shellcheck disable=SC2086
+        mv ${FORGE_JAR} "${SERVER_JARFILE}" 2>/dev/null \
+          || msg_err "Server jar not found matching pattern: ${FORGE_JAR}"
+        msg_ok "Server jar moved to ${SERVER_JARFILE}"
+      fi
+
+      # ── Cleanup ────────────────────────────────────────────────────────────
+      rm -f installer.jar
+      msg_ok "Installation complete — Forge ${FORGE_VERSION} on MC ${MC_VERSION} is ready to start"
+    container: "ghcr.io/shardbyte/installers:java_21"
+    entrypoint: bash
+variables:
+  - sort: 1
+    name: "Server Jar File"
+    description: "Name of the server jar file for Forge versions below 1.17. On 1.17+ this is ignored because Forge uses unix_args.txt instead. Must end in .jar."
+    env_variable: SERVER_JARFILE
+    default_value: server.jar
+    user_viewable: true
+    user_editable: true
+    rules:
+      - required
+      - 'regex:/^([\w\d._-]+)(\.jar)$/'
+  - sort: 2
+    name: "Minecraft Version"
+    description: "Minecraft version to install Forge for. Use 'latest' to auto-resolve the newest version that has a Forge build. Supports both old scheme (1.21.1, 1.20.1) and year-based scheme (26.1.2, 26.1). Requires Java 25 for MC 26.1+."
+    env_variable: MC_VERSION
+    default_value: latest
+    user_viewable: true
+    user_editable: true
+    rules:
+      - required
+      - string
+      - "max:12"
+  - sort: 3
+    name: "Build Type"
+    description: "Forge build channel for auto-resolution. 'recommended' selects the latest stable release. 'latest' includes release candidates and bleeding-edge builds. Ignored when FORGE_VERSION is set explicitly."
+    env_variable: BUILD_TYPE
+    default_value: recommended
+    user_viewable: true
+    user_editable: true
+    rules:
+      - required
+      - string
+      - "in:recommended,latest"
+  - sort: 4
+    name: "Forge Version"
+    description: "Full Forge version string (e.g. 1.20.1-47.3.0). When set, overrides MC_VERSION and BUILD_TYPE entirely. Leave blank to auto-resolve. If the version does not exist on the Forge Maven repository, installation will fail with a URL validation error."
+    env_variable: FORGE_VERSION
+    default_value: ""
+    user_viewable: true
+    user_editable: true
+    rules:
+      - nullable
+      - 'regex:/^[0-9][0-9.\-]*$/'
+  - sort: 5
+    name: "JVM Flags"
+    description: "JVM arguments injected at startup. Defaults to Aikar's G1GC flags tuned for Minecraft servers, with AlwaysPreTouch removed for container safety. For Java 21+ servers consider replacing with ZGC: -XX:+UseZGC -XX:+ZGenerational. Invalid flags will crash the server on start."
+    env_variable: JVM_FLAGS
+    default_value: "-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -Dusing.aikars.flags=https://mcflags.emc.gs -Daikars.new.flags=true"
+    user_viewable: true
+    user_editable: true
+    rules:
+      - nullable
+      - string
+      - "max:512"
+  - sort: 6
+    name: "Extra Startup Arguments"
+    description: "Optional server arguments appended after the jar/unix_args invocation. Useful for Forge/FML flags such as --universe, --world, or disabling specific FML features. Leave blank for default server behavior."
+    env_variable: EXTRA_ARGS
+    default_value: ""
+    user_viewable: true
+    user_editable: true
+    rules:
+      - nullable
+      - string
+      - "max:256"
