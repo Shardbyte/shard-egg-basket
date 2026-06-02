@@ -1,0 +1,178 @@
+meta:
+  version: PLCN_v3
+  update_url: "https://raw.githubusercontent.com/Shardbyte/shard-egg-basket/refs/heads/main/games/mc/vanilla/egg-minecraft-vanilla.yaml"
+exported_at: "2026-06-02T00:00:00+00:00"
+name: "Minecraft Vanilla"
+author: saint@shardbyte.com
+uuid: 87138138-b15f-46a2-9c09-79c214f1c56b
+description: |-
+  Run a vanilla Minecraft server with your friends. Downloads the server jar
+  directly from the official Mojang manifest -- no third-party sources.
+
+  Getting started:
+    - Leave Minecraft Version as "latest" to auto-install the newest release
+    - Use "snapshot" to track the latest development snapshot
+    - Enter an exact version (e.g. 1.21.4, 26.1.2) to pin a specific release
+    - Pick the Java version that matches your Minecraft version (see the Java
+      Version table in the egg README)
+
+  Tip: If the server crashes immediately on start, check the Java version
+  dropdown on the Startup tab. Each Minecraft version requires a minimum Java
+  version -- using an older JVM will crash before the world loads.
+image: null
+tags:
+  - minecraft
+  - vanilla
+  - java
+features:
+  - eula
+  - java_version
+  - pid_limit
+docker_images:
+  "Java 25": "ghcr.io/shardbyte/yolks:java_25"
+  "Java 21": "ghcr.io/shardbyte/yolks:java_21"
+  "Java 17": "ghcr.io/shardbyte/yolks:java_17"
+  "Java 11": "ghcr.io/shardbyte/yolks:java_11"
+  "Java 8": "ghcr.io/shardbyte/yolks:java_8"
+file_denylist: []
+startup_commands:
+  Default: "java -Xms128M -XX:MaxRAMPercentage=90.0 -Dterminal.jline=false -Dterminal.ansi=true {{JVM_FLAGS}} -jar {{SERVER_JARFILE}} nogui {{EXTRA_ARGS}}"
+config:
+  files:
+    server.properties:
+      parser: properties
+      find:
+        server-ip: ""
+        server-port: "{{server.allocations.default.port}}"
+        query.port: "{{server.allocations.default.port}}"
+  startup:
+    done: ")! For help, type "
+  logs: {}
+  stop: stop
+scripts:
+  installation:
+    script: |
+      #!/usr/bin/env bash
+      ###########################
+      #                         #
+      #  Saint @ Shardbyte.com  #
+      #                         #
+      ###########################
+      # Copyright (c) 2023-2026 Shardbyte
+      # Author: Shardbyte (Saint)
+      # Server Files: /mnt/server
+      ######  BEGIN FILE  ######
+
+      YW=$(echo "\033[33m")
+      GN=$(echo "\033[1;92m")
+      CL=$(echo "\033[m")
+      BFR="\\r\\033[K"
+      HOLD="[INFO]"
+      CM="${GN}✓${CL}"
+
+      msg_info() { echo -ne " ${GN}${HOLD}${CL} ${YW}$1${CL}\n"; }
+      msg_ok()   { echo -e  "${BFR} ${CM} ${GN}$1${CL}\n"; }
+      msg_err()  { echo -e  "\\r\\033[K [ERROR] $1\\n"; exit 1; }
+
+      # ── Prerequisites ──────────────────────────────────────────────────────
+      msg_info "Installing prerequisites"
+      apt-get update -qq > /dev/null 2>&1
+      apt-get install -y --no-install-recommends curl jq > /dev/null 2>&1
+      msg_ok "Prerequisites ready"
+
+      mkdir -p /mnt/server
+      cd /mnt/server || msg_err "Failed to enter /mnt/server"
+
+      # ── Sanitize user inputs ───────────────────────────────────────────────
+      MC_VERSION="${MC_VERSION// /}"
+      [[ "${SERVER_JARFILE}" != *.jar ]] && SERVER_JARFILE="${SERVER_JARFILE}.jar"
+
+      # ── Fetch Mojang version manifest ─────────────────────────────────────
+      msg_info "Fetching Minecraft version manifest"
+      MANIFEST=$(curl -fsSL https://piston-meta.mojang.com/mc/game/version_manifest_v2.json) \
+        || msg_err "Failed to fetch Mojang version manifest; check network connectivity"
+      msg_ok "Manifest fetched"
+
+      # ── Resolve version string ─────────────────────────────────────────────
+      if [[ "${MC_VERSION}" == "latest" ]] || [[ -z "${MC_VERSION}" ]]; then
+        MC_VERSION=$(echo "${MANIFEST}" | jq -r '.latest.release')
+        [[ -z "${MC_VERSION}" || "${MC_VERSION}" == "null" ]] \
+          && msg_err "Could not resolve latest release version from manifest"
+        msg_info "Resolved latest release: ${MC_VERSION}"
+      elif [[ "${MC_VERSION}" == "snapshot" ]]; then
+        MC_VERSION=$(echo "${MANIFEST}" | jq -r '.latest.snapshot')
+        [[ -z "${MC_VERSION}" || "${MC_VERSION}" == "null" ]] \
+          && msg_err "Could not resolve latest snapshot version from manifest"
+        msg_info "Resolved latest snapshot: ${MC_VERSION}"
+      fi
+
+      # ── Fetch version metadata ─────────────────────────────────────────────
+      msg_info "Resolving download URL for Minecraft ${MC_VERSION}"
+      VERSION_URL=$(echo "${MANIFEST}" | jq -r --arg V "${MC_VERSION}" \
+        '.versions[] | select(.id == $V) | .url')
+
+      if [[ -z "${VERSION_URL}" || "${VERSION_URL}" == "null" ]]; then
+        msg_err "Version '${MC_VERSION}' not found in manifest. Check MC_VERSION is a valid release or snapshot identifier."
+      fi
+
+      VERSION_JSON=$(curl -fsSL "${VERSION_URL}") \
+        || msg_err "Failed to fetch version metadata for ${MC_VERSION}"
+
+      SERVER_URL=$(echo "${VERSION_JSON}" | jq -r '.downloads.server.url')
+
+      if [[ -z "${SERVER_URL}" || "${SERVER_URL}" == "null" ]]; then
+        msg_err "No dedicated server jar available for Minecraft ${MC_VERSION}. Versions before 1.2.5 did not include a server download."
+      fi
+
+      # ── Download server jar ────────────────────────────────────────────────
+      msg_info "Downloading Minecraft ${MC_VERSION} server"
+      curl -fsSL -o "${SERVER_JARFILE}" "${SERVER_URL}" \
+        || msg_err "Download failed: ${SERVER_URL}"
+      [[ ! -f "${SERVER_JARFILE}" ]] && msg_err "Server jar not present after download"
+      msg_ok "Minecraft ${MC_VERSION} server installed as ${SERVER_JARFILE}"
+    container: "ghcr.io/shardbyte/installers:debian"
+    entrypoint: bash
+variables:
+  - sort: 1
+    name: "Server Jar File"
+    description: "Name of the server jar file. The install script downloads the server jar with this filename and the startup command launches it. Must end in .jar."
+    env_variable: SERVER_JARFILE
+    default_value: server.jar
+    user_viewable: true
+    user_editable: true
+    rules:
+      - required
+      - 'regex:/^([\w\d._-]+)(\.jar)$/'
+  - sort: 2
+    name: "Minecraft Version"
+    description: "Minecraft version to install. Use 'latest' for the newest release, 'snapshot' for the latest development snapshot, or an exact version string (e.g. 1.21.4, 26.1.2). Changing this after first install requires a reinstall -- world data is preserved but the jar is replaced."
+    env_variable: MC_VERSION
+    default_value: latest
+    user_viewable: true
+    user_editable: true
+    rules:
+      - required
+      - string
+      - "max:16"
+  - sort: 3
+    name: "JVM Flags"
+    description: "JVM arguments injected at startup. For Java 21+ servers consider replacing with ZGC: -XX:+UseZGC -XX:+ZGenerational. Invalid flags will crash the server on start."
+    env_variable: JVM_FLAGS
+    default_value: "-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+DisableExplicitGC -XX:+PerfDisableSharedMem"
+    user_viewable: true
+    user_editable: true
+    rules:
+      - nullable
+      - string
+      - "max:512"
+  - sort: 4
+    name: "Extra Startup Arguments"
+    description: "Optional arguments appended after the jar invocation. Useful for flags like --bonusChest or --eraseCache. Leave blank for default server behavior."
+    env_variable: EXTRA_ARGS
+    default_value: ""
+    user_viewable: true
+    user_editable: true
+    rules:
+      - nullable
+      - string
+      - "max:256"

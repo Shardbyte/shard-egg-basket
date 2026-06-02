@@ -27,6 +27,7 @@ All eggs use images from [shard-yolk-basket](https://github.com/Shardbyte/shard-
 
 | Name | Egg File | Runtime Image | Install Image |
 |---|---|---|---|
+| Minecraft Vanilla | [`games/mc/vanilla/egg-minecraft-vanilla.yaml`](games/mc/vanilla/egg-minecraft-vanilla.yaml) | `ghcr.io/shardbyte/yolks:java_8` -- `java_25` | `ghcr.io/shardbyte/installers:debian` |
 | Minecraft Forge | [`games/mc/forge/egg-minecraft-forge.yaml`](games/mc/forge/egg-minecraft-forge.yaml) | `ghcr.io/shardbyte/yolks:java_8` -- `java_25` | `ghcr.io/shardbyte/installers:java_21` |
 | Project Tarkov: Fika Edition | [`games/eft/egg-eft-fika.yaml`](games/eft/egg-eft-fika.yaml) | `ghcr.io/shardbyte/yolks:debian` | `ghcr.io/shardbyte/installers:dotnet_10` |
 | Project Zomboid | [`games/pz/egg-project-zomboid.yaml`](games/pz/egg-project-zomboid.yaml) | `ghcr.io/shardbyte/steamcmd:debian` | `ghcr.io/shardbyte/installers:debian` |
@@ -42,6 +43,7 @@ Each egg contains an `update_url` pointing to its raw GitHub URL. In the Pelican
 
 | Egg | Import URL |
 |---|---|
+| Minecraft Vanilla | `https://raw.githubusercontent.com/Shardbyte/shard-egg-basket/refs/heads/main/games/mc/vanilla/egg-minecraft-vanilla.yaml` |
 | Minecraft Forge | `https://raw.githubusercontent.com/Shardbyte/shard-egg-basket/refs/heads/main/games/mc/forge/egg-minecraft-forge.yaml` |
 | Project Tarkov: Fika Edition | `https://raw.githubusercontent.com/Shardbyte/shard-egg-basket/refs/heads/main/games/eft/egg-eft-fika.yaml` |
 | Project Zomboid | `https://raw.githubusercontent.com/Shardbyte/shard-egg-basket/refs/heads/main/games/pz/egg-project-zomboid.yaml` |
