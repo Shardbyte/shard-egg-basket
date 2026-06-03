@@ -1,0 +1,244 @@
+meta:
+  version: PLCN_v3
+  update_url: "https://raw.githubusercontent.com/Shardbyte/shard-egg-basket/refs/heads/main/games/mc/fabric/egg-minecraft-fabric.yaml"
+exported_at: "2026-06-03T00:00:00+00:00"
+name: "Minecraft Fabric"
+author: saint@shardbyte.com
+uuid: 1abfbb2b-693b-4155-aead-2eaad2b5005c
+description: |-
+  Run a lightweight modded Minecraft server with your friends. Fabric is popular
+  for performance mods, small mod lists, snapshots, and packs that update quickly.
+
+  Getting started:
+    - Leave Minecraft Version as "latest" for the newest release
+    - Use "snapshot" if your mod pack targets the latest development snapshot
+    - Leave Fabric Installer and Fabric Loader as "latest" unless your pack lists exact versions
+    - Pick the Java version shown on your mod pack's download page
+
+  Tip: Fabric packs are strict about versions. If mods fail to load, check that Minecraft,
+  Fabric Loader, and Java all match what the mod pack expects.
+image: null
+tags:
+  - minecraft
+  - fabric
+  - modded
+  - java
+features:
+  - eula
+  - java_version
+  - pid_limit
+docker_images:
+  "Java 25": "ghcr.io/shardbyte/yolks:java_25"
+  "Java 21": "ghcr.io/shardbyte/yolks:java_21"
+  "Java 17": "ghcr.io/shardbyte/yolks:java_17"
+  "Java 11": "ghcr.io/shardbyte/yolks:java_11"
+  "Java 8": "ghcr.io/shardbyte/yolks:java_8"
+file_denylist: []
+startup_commands:
+  Default: "java -Xms128M -XX:MaxRAMPercentage=90.0 -Dterminal.jline=false -Dterminal.ansi=true {{JVM_FLAGS}} -jar {{SERVER_JARFILE}} nogui {{EXTRA_ARGS}}"
+config:
+  files:
+    server.properties:
+      parser: properties
+      find:
+        server-ip: ""
+        server-port: "{{server.allocations.default.port}}"
+        query.port: "{{server.allocations.default.port}}"
+  startup:
+    done: ")! For help, type "
+  logs: {}
+  stop: stop
+scripts:
+  installation:
+    script: |
+      #!/usr/bin/env bash
+      ###########################
+      #                         #
+      #  Saint @ Shardbyte.com  #
+      #                         #
+      ###########################
+      # Copyright (c) 2023-2026 Shardbyte
+      # Author: Shardbyte (Saint)
+      # Server Files: /mnt/server
+      ######  BEGIN FILE  ######
+
+      YW=$(echo "\033[33m")
+      GN=$(echo "\033[1;92m")
+      CL=$(echo "\033[m")
+      BFR="\\r\\033[K"
+      HOLD="[INFO]"
+      CM="${GN}✓${CL}"
+
+      msg_info() { echo -ne " ${GN}${HOLD}${CL} ${YW}$1${CL}\n"; }
+      msg_ok()   { echo -e  "${BFR} ${CM} ${GN}$1${CL}\n"; }
+      msg_err()  { echo -e  "\\r\\033[K [ERROR] $1\\n"; exit 1; }
+
+      # -- Prerequisites ------------------------------------------------------
+      msg_info "Installing prerequisites"
+      apt-get update -qq > /dev/null 2>&1
+      apt-get install -y --no-install-recommends curl jq > /dev/null 2>&1
+      msg_ok "Prerequisites ready"
+
+      mkdir -p /mnt/server
+      cd /mnt/server || msg_err "Failed to enter /mnt/server"
+
+      # -- Sanitize user inputs -----------------------------------------------
+      MC_VERSION="${MC_VERSION// /}"
+      FABRIC_INSTALLER_VERSION="${FABRIC_INSTALLER_VERSION// /}"
+      FABRIC_LOADER_VERSION="${FABRIC_LOADER_VERSION// /}"
+      [[ "${SERVER_JARFILE}" != *.jar ]] && SERVER_JARFILE="${SERVER_JARFILE}.jar"
+
+      # -- Resolve Minecraft version ------------------------------------------
+      msg_info "Fetching Fabric game version manifest"
+      GAME_JSON=$(curl -fsSL https://meta.fabricmc.net/v2/versions/game) \
+        || msg_err "Failed to fetch Fabric game versions; check network connectivity"
+
+      if [[ "${MC_VERSION}" == "latest" ]] || [[ -z "${MC_VERSION}" ]]; then
+        MC_VERSION=$(echo "${GAME_JSON}" | jq -r '.[] | select(.stable == true) | .version' | head -1)
+        [[ -z "${MC_VERSION}" || "${MC_VERSION}" == "null" ]] \
+          && msg_err "Could not resolve latest stable Minecraft version"
+        msg_info "Resolved latest release: ${MC_VERSION}"
+      elif [[ "${MC_VERSION}" == "snapshot" ]]; then
+        MC_VERSION=$(echo "${GAME_JSON}" | jq -r '.[] | select(.stable == false) | .version' | head -1)
+        [[ -z "${MC_VERSION}" || "${MC_VERSION}" == "null" ]] \
+          && msg_err "Could not resolve latest snapshot Minecraft version"
+        msg_info "Resolved latest snapshot: ${MC_VERSION}"
+      fi
+
+      # -- Resolve Fabric installer and loader versions -----------------------
+      if [[ "${FABRIC_INSTALLER_VERSION}" == "latest" ]] || [[ -z "${FABRIC_INSTALLER_VERSION}" ]]; then
+        msg_info "Resolving latest Fabric installer"
+        FABRIC_INSTALLER_VERSION=$(curl -fsSL https://meta.fabricmc.net/v2/versions/installer \
+          | jq -r '.[0].version') \
+          || msg_err "Failed to resolve Fabric installer version"
+      fi
+
+      if [[ "${FABRIC_LOADER_VERSION}" == "latest" ]] || [[ -z "${FABRIC_LOADER_VERSION}" ]]; then
+        msg_info "Resolving latest stable Fabric loader"
+        FABRIC_LOADER_VERSION=$(curl -fsSL https://meta.fabricmc.net/v2/versions/loader \
+          | jq -r '.[] | select(.stable == true) | .version' \
+          | head -1) \
+          || msg_err "Failed to resolve Fabric loader version"
+      elif [[ "${FABRIC_LOADER_VERSION}" == "snapshot" ]]; then
+        msg_info "Resolving latest snapshot Fabric loader"
+        FABRIC_LOADER_VERSION=$(curl -fsSL https://meta.fabricmc.net/v2/versions/loader \
+          | jq -r '.[] | select(.stable == false) | .version' \
+          | head -1) \
+          || msg_err "Failed to resolve Fabric loader snapshot"
+      fi
+
+      [[ -z "${FABRIC_INSTALLER_VERSION}" || "${FABRIC_INSTALLER_VERSION}" == "null" ]] \
+        && msg_err "Fabric installer version could not be resolved"
+      [[ -z "${FABRIC_LOADER_VERSION}" || "${FABRIC_LOADER_VERSION}" == "null" ]] \
+        && msg_err "Fabric loader version could not be resolved"
+
+      INSTALLER_URL="https://maven.fabricmc.net/net/fabricmc/fabric-installer/${FABRIC_INSTALLER_VERSION}/fabric-installer-${FABRIC_INSTALLER_VERSION}.jar"
+
+      # -- Remove stale launcher files ----------------------------------------
+      rm -f fabric-installer.jar.tmp fabric-server-launch.jar minecraft-server.jar "${SERVER_JARFILE}"
+
+      # -- Validate installer URL before downloading --------------------------
+      msg_info "Checking installer URL: ${INSTALLER_URL}"
+      if ! curl --output /dev/null --silent --head --fail "${INSTALLER_URL}"; then
+        msg_err "Installer URL is unreachable: ${INSTALLER_URL} -- verify version strings and retry"
+      fi
+      msg_ok "Installer URL verified"
+
+      # -- Download Fabric installer ------------------------------------------
+      msg_info "Downloading Fabric installer ${FABRIC_INSTALLER_VERSION}"
+      curl -fsSL -o fabric-installer.jar "${INSTALLER_URL}" \
+        || msg_err "Download failed: ${INSTALLER_URL}"
+      [[ ! -f fabric-installer.jar ]] && msg_err "fabric-installer.jar not present after download"
+      msg_ok "Fabric installer downloaded"
+
+      # -- Run Fabric installer -----------------------------------------------
+      msg_info "Installing Fabric server (MC ${MC_VERSION} / Loader ${FABRIC_LOADER_VERSION})"
+      java -jar fabric-installer.jar server \
+        -mcversion "${MC_VERSION}" \
+        -loader "${FABRIC_LOADER_VERSION}" \
+        -downloadMinecraft \
+        || msg_err "Fabric installer failed. Ensure install memory exceeds 512 MB and the selected versions are compatible."
+      msg_ok "Fabric server installed"
+
+      # -- Normalize launcher files -------------------------------------------
+      [[ -f server.jar ]] || msg_err "Minecraft server jar was not created by the Fabric installer"
+      [[ -f fabric-server-launch.jar ]] || msg_err "Fabric launcher jar was not created by the Fabric installer"
+
+      mv server.jar minecraft-server.jar \
+        || msg_err "Failed to move vanilla server jar to minecraft-server.jar"
+      mv fabric-server-launch.jar "${SERVER_JARFILE}" \
+        || msg_err "Failed to move Fabric launcher jar to ${SERVER_JARFILE}"
+      printf "serverJar=minecraft-server.jar\n" > fabric-server-launcher.properties
+      msg_ok "Launcher configured as ${SERVER_JARFILE}"
+
+      # -- Cleanup ------------------------------------------------------------
+      rm -f fabric-installer.jar
+      msg_ok "Installation complete -- Fabric Loader ${FABRIC_LOADER_VERSION} on MC ${MC_VERSION} is ready to start"
+    container: "ghcr.io/shardbyte/installers:java_21"
+    entrypoint: bash
+variables:
+  - sort: 1
+    name: "Server Jar File"
+    description: "Name of the Fabric launcher jar file. The install script creates this file and the startup command launches it. Must end in .jar."
+    env_variable: SERVER_JARFILE
+    default_value: server.jar
+    user_viewable: true
+    user_editable: true
+    rules:
+      - required
+      - 'regex:/^([\w\d._-]+)(\.jar)$/'
+  - sort: 2
+    name: "Minecraft Version"
+    description: "Minecraft version to install. Use 'latest' for the newest release, 'snapshot' for the latest development snapshot, or an exact version string required by your mod pack."
+    env_variable: MC_VERSION
+    default_value: latest
+    user_viewable: true
+    user_editable: true
+    rules:
+      - required
+      - string
+      - "max:32"
+  - sort: 3
+    name: "Fabric Installer Version"
+    description: "Fabric installer version to use. Leave as 'latest' unless your mod pack or support instructions require an exact installer version."
+    env_variable: FABRIC_INSTALLER_VERSION
+    default_value: latest
+    user_viewable: true
+    user_editable: true
+    rules:
+      - required
+      - string
+      - "max:16"
+  - sort: 4
+    name: "Fabric Loader Version"
+    description: "Fabric Loader version to install. Use 'latest' for the newest stable loader, 'snapshot' for the newest unstable loader, or an exact version required by your mod pack."
+    env_variable: FABRIC_LOADER_VERSION
+    default_value: latest
+    user_viewable: true
+    user_editable: true
+    rules:
+      - required
+      - string
+      - "max:16"
+  - sort: 5
+    name: "JVM Flags"
+    description: "JVM arguments injected at startup. For Java 21+ servers consider replacing with ZGC instead of G1GC. Invalid flags will crash the server on start."
+    env_variable: JVM_FLAGS
+    default_value: "-XX:+UseG1GC -XX:+DisableExplicitGC -XX:+PerfDisableSharedMem"
+    user_viewable: true
+    user_editable: true
+    rules:
+      - nullable
+      - string
+      - "max:512"
+  - sort: 6
+    name: "Extra Startup Arguments"
+    description: "Optional server arguments appended after the jar invocation. Leave blank for default server behavior."
+    env_variable: EXTRA_ARGS
+    default_value: ""
+    user_viewable: true
+    user_editable: true
+    rules:
+      - nullable
+      - string
+      - "max:256"

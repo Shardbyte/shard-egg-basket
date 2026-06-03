@@ -1,0 +1,219 @@
+meta:
+  version: PLCN_v3
+  update_url: "https://raw.githubusercontent.com/Shardbyte/shard-egg-basket/refs/heads/main/games/mc/neoforge/egg-minecraft-neoforge.yaml"
+exported_at: "2026-06-03T00:00:00+00:00"
+name: "Minecraft NeoForge"
+author: saint@shardbyte.com
+uuid: 3bd31546-cb11-4871-9c4f-bfc9fddcbb0e
+description: |-
+  Run a modern modded Minecraft server with your friends. NeoForge supports many
+  newer mod packs and continues the Forge-style modding experience for recent Minecraft versions.
+
+  Getting started:
+    - Set Minecraft Version to match what your mod pack requires (e.g. 1.21.1)
+    - Pick the Java version shown on your mod pack's download page
+    - Leave NeoForge Version blank to auto-install the newest matching build
+    - Enter an exact NeoForge Version only when your mod pack requires one
+
+  Tip: If the server crashes right after starting, the Java version is usually the cause.
+  Check your mod pack's page for the required Java version and update the dropdown to match.
+image: null
+tags:
+  - minecraft
+  - neoforge
+  - modded
+  - java
+features:
+  - eula
+  - java_version
+  - pid_limit
+docker_images:
+  "Java 25": "ghcr.io/shardbyte/yolks:java_25"
+  "Java 21": "ghcr.io/shardbyte/yolks:java_21"
+  "Java 17": "ghcr.io/shardbyte/yolks:java_17"
+  "Java 11": "ghcr.io/shardbyte/yolks:java_11"
+  "Java 8": "ghcr.io/shardbyte/yolks:java_8"
+file_denylist: []
+startup_commands:
+  Default: "java -Xms128M -XX:MaxRAMPercentage=90.0 -Dterminal.jline=false -Dterminal.ansi=true {{JVM_FLAGS}} @unix_args.txt nogui {{EXTRA_ARGS}}"
+config:
+  files:
+    server.properties:
+      parser: properties
+      find:
+        server-ip: ""
+        server-port: "{{server.allocations.default.port}}"
+        query.port: "{{server.allocations.default.port}}"
+  startup:
+    done: ")! For help, type "
+  logs: {}
+  stop: stop
+scripts:
+  installation:
+    script: |
+      #!/usr/bin/env bash
+      ###########################
+      #                         #
+      #  Saint @ Shardbyte.com  #
+      #                         #
+      ###########################
+      # Copyright (c) 2023-2026 Shardbyte
+      # Author: Shardbyte (Saint)
+      # Server Files: /mnt/server
+      ######  BEGIN FILE  ######
+
+      YW=$(echo "\033[33m")
+      GN=$(echo "\033[1;92m")
+      CL=$(echo "\033[m")
+      BFR="\\r\\033[K"
+      HOLD="[INFO]"
+      CM="${GN}✓${CL}"
+
+      msg_info() { echo -ne " ${GN}${HOLD}${CL} ${YW}$1${CL}\n"; }
+      msg_ok()   { echo -e  "${BFR} ${CM} ${GN}$1${CL}\n"; }
+      msg_err()  { echo -e  "\\r\\033[K [ERROR] $1\\n"; exit 1; }
+
+      # -- Prerequisites ------------------------------------------------------
+      msg_info "Installing prerequisites"
+      apt-get update -qq > /dev/null 2>&1
+      apt-get install -y --no-install-recommends curl xmlstarlet > /dev/null 2>&1
+      msg_ok "Prerequisites ready"
+
+      mkdir -p /mnt/server
+      cd /mnt/server || msg_err "Failed to enter /mnt/server"
+
+      # -- Sanitize user inputs -----------------------------------------------
+      NEOFORGE_VERSION="${NEOFORGE_VERSION// /}"
+      MC_VERSION="${MC_VERSION// /}"
+
+      # -- Version resolution -------------------------------------------------
+      if [[ -n "${NEOFORGE_VERSION}" ]]; then
+        msg_info "Using explicit NeoForge version: ${NEOFORGE_VERSION}"
+        if [[ "${NEOFORGE_VERSION}" == 1.20.1-* ]]; then
+          ARTIFACT_NAME="forge"
+        else
+          ARTIFACT_NAME="neoforge"
+        fi
+      else
+        if [[ "${MC_VERSION}" == "1.20.1" ]]; then
+          ARTIFACT_NAME="forge"
+          VERSION_KEY="1.20.1-"
+        else
+          ARTIFACT_NAME="neoforge"
+        fi
+
+        METADATA_URL="https://maven.neoforged.net/releases/net/neoforged/${ARTIFACT_NAME}/maven-metadata.xml"
+        msg_info "Fetching NeoForge Maven metadata"
+        XML_DATA=$(curl -fsSL "${METADATA_URL}") \
+          || msg_err "Failed to fetch NeoForge metadata; check network connectivity"
+
+        if [[ "${MC_VERSION}" == "latest" ]] || [[ -z "${MC_VERSION}" ]]; then
+          msg_info "Resolving latest Minecraft version from NeoForge metadata"
+          LATEST_NEOFORGE=$(echo "${XML_DATA}" | xmlstarlet sel -t -v "/metadata/versioning/release") \
+            || msg_err "Failed to read latest NeoForge release"
+          VERSION_KEY=$(echo "${LATEST_NEOFORGE}" | cut -d. -f1-2)
+          VERSION_MAJOR=$(echo "${VERSION_KEY}" | cut -d. -f1)
+          if (( VERSION_MAJOR >= 26 )); then
+            MC_VERSION="${VERSION_KEY}"
+          else
+            MC_VERSION="1.${VERSION_KEY}"
+          fi
+        elif [[ -z "${VERSION_KEY}" ]]; then
+          if [[ "${MC_VERSION}" == 1.* ]]; then
+            VERSION_KEY="${MC_VERSION#1.}"
+          else
+            VERSION_KEY="${MC_VERSION}"
+          fi
+        fi
+
+        msg_info "Resolving NeoForge build for Minecraft ${MC_VERSION}"
+        NEOFORGE_VERSION=$(echo "${XML_DATA}" \
+          | xmlstarlet sel -t -m "/metadata/versioning/versions/version[starts-with(., '${VERSION_KEY}')]" -v . -n \
+          | tail -1)
+
+        if [[ -z "${NEOFORGE_VERSION}" ]]; then
+          msg_err "No NeoForge build found for Minecraft ${MC_VERSION}. Verify MC_VERSION is a supported release."
+        fi
+
+        msg_info "Resolved: Minecraft ${MC_VERSION} -> NeoForge ${NEOFORGE_VERSION}"
+      fi
+
+      DOWNLOAD_LINK="https://maven.neoforged.net/releases/net/neoforged/${ARTIFACT_NAME}/${NEOFORGE_VERSION}/${ARTIFACT_NAME}-${NEOFORGE_VERSION}"
+
+      # -- Validate installer URL before downloading --------------------------
+      msg_info "Checking installer URL: ${DOWNLOAD_LINK}-installer.jar"
+      if ! curl --output /dev/null --silent --head --fail "${DOWNLOAD_LINK}-installer.jar"; then
+        msg_err "Installer URL is unreachable: ${DOWNLOAD_LINK}-installer.jar -- verify version strings and retry"
+      fi
+      msg_ok "Installer URL verified"
+
+      # -- Download NeoForge installer ----------------------------------------
+      msg_info "Downloading NeoForge ${NEOFORGE_VERSION} installer"
+      curl -fsSL -o installer.jar "${DOWNLOAD_LINK}-installer.jar" \
+        || msg_err "Download failed: ${DOWNLOAD_LINK}-installer.jar"
+      [[ ! -f installer.jar ]] && msg_err "installer.jar not present after download"
+      msg_ok "NeoForge ${NEOFORGE_VERSION} installer downloaded"
+
+      # -- Remove stale loader libraries --------------------------------------
+      rm -rf "libraries/net/neoforged/${ARTIFACT_NAME}" unix_args.txt
+
+      # -- Run NeoForge installer ---------------------------------------------
+      msg_info "Installing NeoForge server (MC ${MC_VERSION:-explicit} / NeoForge ${NEOFORGE_VERSION})"
+      java -jar installer.jar --installServer \
+        || msg_err "NeoForge installer failed. Ensure install memory exceeds 512 MB and the selected Java install image supports this Minecraft version."
+      msg_ok "NeoForge server installed"
+
+      # -- Post-install: unix_args.txt symlink --------------------------------
+      ln -sf "libraries/net/neoforged/${ARTIFACT_NAME}"/*/unix_args.txt unix_args.txt \
+        && msg_ok "unix_args.txt symlinked" \
+        || msg_err "Failed to create unix_args.txt symlink; check that the installer ran successfully"
+
+      # -- Cleanup ------------------------------------------------------------
+      rm -f installer.jar
+      msg_ok "Installation complete -- NeoForge ${NEOFORGE_VERSION} on MC ${MC_VERSION:-explicit} is ready to start"
+    container: "ghcr.io/shardbyte/installers:java_21"
+    entrypoint: bash
+variables:
+  - sort: 1
+    name: "Minecraft Version"
+    description: "Minecraft version to install NeoForge for. Use 'latest' to auto-resolve the newest version that has a NeoForge build. Enter the exact version your mod pack requires when provided."
+    env_variable: MC_VERSION
+    default_value: latest
+    user_viewable: true
+    user_editable: true
+    rules:
+      - required
+      - string
+      - "max:16"
+  - sort: 2
+    name: "NeoForge Version"
+    description: "Full NeoForge version string (e.g. 21.1.200 or 1.20.1-47.1.106). When set, overrides MC_VERSION. Leave blank to auto-resolve from MC_VERSION."
+    env_variable: NEOFORGE_VERSION
+    default_value: ""
+    user_viewable: true
+    user_editable: true
+    rules:
+      - nullable
+      - 'regex:/^[0-9][0-9.\-]*$/'
+  - sort: 3
+    name: "JVM Flags"
+    description: "JVM arguments injected at startup. For Java 21+ servers consider replacing with ZGC instead of G1GC. Invalid flags will crash the server on start."
+    env_variable: JVM_FLAGS
+    default_value: "-XX:+UseG1GC -XX:+DisableExplicitGC -XX:+PerfDisableSharedMem"
+    user_viewable: true
+    user_editable: true
+    rules:
+      - nullable
+      - string
+      - "max:512"
+  - sort: 4
+    name: "Extra Startup Arguments"
+    description: "Optional server arguments appended after the unix_args invocation. Useful for loader or Minecraft flags required by some mod packs. Leave blank for default server behavior."
+    env_variable: EXTRA_ARGS
+    default_value: ""
+    user_viewable: true
+    user_editable: true
+    rules:
+      - nullable
+      - string
+      - "max:256"

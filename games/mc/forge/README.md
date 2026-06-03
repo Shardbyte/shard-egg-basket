@@ -65,7 +65,7 @@ Your mod pack's download page will list the required Java version.
 | Minecraft Version | `MC_VERSION` | `latest` | Minecraft version to install Forge for (e.g. `1.20.1`, `26.1.2`). Use `latest` to auto-resolve the newest version with a Forge build. |
 | Build Type | `BUILD_TYPE` | `recommended` | Forge build channel. `recommended` = latest stable release. `latest` = includes release candidates. Ignored when `FORGE_VERSION` is set. |
 | Forge Version | `FORGE_VERSION` | _(empty)_ | Full Forge version string (e.g. `1.20.1-47.3.0`). When set, skips auto-resolution entirely. Leave blank to auto-resolve from `MC_VERSION` and `BUILD_TYPE`. |
-| JVM Flags | `JVM_FLAGS` | Aikar's G1GC flags | JVM arguments injected at startup. Defaults to Aikar's tuned G1GC flags for Minecraft servers. For Java 21+ consider ZGC: `-XX:+UseZGC -XX:+ZGenerational`. Invalid flags crash the server on start. |
+| JVM Flags | `JVM_FLAGS` | G1GC flags | JVM arguments injected at startup. For Java 21+ consider ZGC. Invalid flags crash on start. |
 | Extra Startup Arguments | `EXTRA_ARGS` | _(empty)_ | Optional server arguments appended after the launch invocation. Useful for Forge/FML flags like `--universe` or `--world`. |
 
 ---

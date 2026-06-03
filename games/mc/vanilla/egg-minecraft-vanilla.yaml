@@ -156,9 +156,9 @@ variables:
       - "max:16"
   - sort: 3
     name: "JVM Flags"
-    description: "JVM arguments injected at startup. For Java 21+ servers consider replacing with ZGC: -XX:+UseZGC -XX:+ZGenerational. Invalid flags will crash the server on start."
+    description: "JVM arguments injected at startup. For Java 21+ servers consider replacing with ZGC instead of G1GC. Invalid flags will crash the server on start."
     env_variable: JVM_FLAGS
-    default_value: "-XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+DisableExplicitGC -XX:+PerfDisableSharedMem"
+    default_value: "-XX:+UseG1GC -XX:+DisableExplicitGC -XX:+PerfDisableSharedMem"
     user_viewable: true
     user_editable: true
     rules:

@@ -65,7 +65,7 @@ Higher is usually fine -- prefer the newest Java that your version supports.
 |------|-----|---------|-------------|
 | Server Jar File | `SERVER_JARFILE` | `server.jar` | Jar filename. The install script downloads and names the server jar to this value. Must end in `.jar`. |
 | Minecraft Version | `MC_VERSION` | `latest` | `latest` for newest release, `snapshot` for latest dev snapshot, or an exact version (e.g. `1.21.4`, `26.1.2`). Changing version requires a reinstall. |
-| JVM Flags | `JVM_FLAGS` | Aikar's G1GC flags | JVM arguments injected at startup. Defaults to Aikar's tuned G1GC flags. For Java 21+ consider ZGC: `-XX:+UseZGC -XX:+ZGenerational`. Invalid flags crash on start. |
+| JVM Flags | `JVM_FLAGS` | G1GC flags | JVM arguments injected at startup. For Java 21+ consider ZGC. Invalid flags crash on start. |
 | Extra Startup Arguments | `EXTRA_ARGS` | _(empty)_ | Optional arguments appended after the jar invocation (e.g. `--bonusChest`, `--eraseCache`). |
 
 ---
